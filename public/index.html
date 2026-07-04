@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Controller</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #151b28; --text: #e6ebf5; --muted: #8a93a8;
+    --legs: #3d8bfd; --arms: #ff5d5d; --accent: #ffcf5d; --goal: #4ade80;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { width: 100%; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; touch-action: none; }
+  #app { width: 100vw; height: 100vh; position: relative; }
+
+  /* Join view */
+  #join { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; }
+  #join h1 { font-size: 22px; text-align: center; }
+  #join p { color: var(--muted); font-size: 14px; text-align: center; }
+  #codeInput { font-size: 34px; letter-spacing: 10px; text-align: center; text-transform: uppercase;
+    width: 100%; max-width: 280px; padding: 14px; border-radius: 12px; border: 2px solid #2a3242;
+    background: var(--panel); color: var(--accent); font-weight: 800; }
+  .roleChoice { display: flex; gap: 12px; }
+  .rolePick { flex: 1; padding: 14px 18px; border-radius: 12px; background: var(--panel); border: 2px solid #2a3242;
+    color: var(--muted); font-size: 14px; font-weight: 700; cursor: pointer; }
+  .rolePick.sel { color: var(--text); }
+  .rolePick.legs.sel { border-color: var(--legs); color: var(--legs); }
+  .rolePick.arms.sel { border-color: var(--arms); color: var(--arms); }
+  #joinBtn { background: var(--goal); color: #06110a; border: none; padding: 15px 44px; border-radius: 12px;
+    font-size: 16px; font-weight: 800; cursor: pointer; }
+  #joinErr { color: var(--arms); font-size: 13px; min-height: 16px; }
+
+  /* Waiting view */
+  #wait { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  #wait.show { display: flex; }
+  #wait .roleTag { font-size: 20px; font-weight: 800; }
+  #wait .roleTag.legs { color: var(--legs); } #wait .roleTag.arms { color: var(--arms); }
+  #wait p { color: var(--muted); font-size: 14px; }
+
+  /* Controller view */
+  #pad { position: absolute; inset: 0; display: none; }
+  #pad.show { display: block; }
+  .padHeader { position: absolute; top: env(safe-area-inset-top, 8px); left: 0; right: 0; text-align: center;
+    font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); pointer-events: none; padding-top: 8px; }
+  .padHeader.legs b { color: var(--legs); } .padHeader.arms b { color: var(--arms); }
+
+  /* Joystick zone (left half) */
+  #stickZone { position: absolute; left: 0; top: 0; bottom: 0; width: 50%; }
+  #stickBase { position: absolute; width: 130px; height: 130px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.18); display: none; transform: translate(-50%,-50%); }
+  #stickNub { position: absolute; width: 58px; height: 58px; border-radius: 50%; display: none; transform: translate(-50%,-50%); }
+  #stickNub.legs { background: var(--legs); } #stickNub.arms { background: var(--arms); }
+  .stickHint { position: absolute; left: 22px; bottom: 22px; font-size: 12px; color: var(--muted); pointer-events: none; }
+
+  /* Buttons zone (right half) */
+  #btnZone { position: absolute; right: 0; top: 0; bottom: 0; width: 50%; display: grid; gap: 14px; padding: 18px;
+    grid-template-columns: 1fr 1fr; align-content: center; }
+  .btn { border-radius: 18px; border: none; font-size: 16px; font-weight: 800; color: #fff; height: 100%;
+    min-height: 84px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    background: #2a3242; letter-spacing: 0.5px; transition: transform .05s, filter .05s; text-align:center; line-height:1.15; }
+  .btn:active { transform: scale(0.96); filter: brightness(1.2); }
+  .btn.jump { background: var(--legs); } .btn.dash { background: #2e6fd0; }
+  .btn.kick { background: #244a86; grid-column: span 2; }
+  .btn.shoot { background: var(--arms); } .btn.punch { background: #c23b3b; }
+  .btn.thrust { background: #7a5a1e; grid-column: span 2; color: #ffe6a3; }
+  .btn.thrust.live { background: var(--accent); color: #3a2a00; box-shadow: 0 0 18px var(--accent); }
+  .btn.thrust.dim { opacity: 0.45; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- JOIN -->
+  <div id="join">
+    <h1>Join the game</h1>
+    <p>Enter the code shown on the TV</p>
+    <input id="codeInput" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="····">
+    <div class="roleChoice">
+      <div class="rolePick legs" data-role="legs">Legs<br><small>move · jump · kick · dash</small></div>
+      <div class="rolePick arms" data-role="arms">Arms<br><small>aim · shoot · punch · thrust</small></div>
+    </div>
+    <button id="joinBtn">Join</button>
+    <div id="joinErr"></div>
+  </div>
+
+  <!-- WAITING -->
+  <div id="wait">
+    <div class="roleTag" id="waitRole">—</div>
+    <p>You're in. Waiting for the TV to start…</p>
+  </div>
+
+  <!-- CONTROLLER -->
+  <div id="pad">
+    <div class="padHeader" id="padHeader"></div>
+    <div id="stickZone">
+      <div id="stickBase"></div>
+      <div id="stickNub"></div>
+      <div class="stickHint" id="stickHint"></div>
+    </div>
+    <div id="btnZone"></div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let myRole = null;
+let preferredRole = null;
+
+// ---- Join view -------------------------------------------------------------
+const params = new URLSearchParams(location.search);
+if (params.get('code')) document.getElementById('codeInput').value = params.get('code').toUpperCase();
+
+document.querySelectorAll('.rolePick').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.rolePick').forEach(x => x.classList.remove('sel'));
+    el.classList.add('sel');
+    preferredRole = el.dataset.role;
+  });
+});
+
+document.getElementById('joinBtn').addEventListener('click', () => {
+  const code = document.getElementById('codeInput').value.toUpperCase().trim();
+  if (code.length < 4) { showErr('Enter the 4-character code.'); return; }
+  socket.emit('join-room', { code, preferredRole });
+});
+function showErr(m){ document.getElementById('joinErr').textContent = m; }
+
+socket.on('join-error', ({ message }) => showErr(message));
+
+socket.on('joined', ({ role }) => {
+  myRole = role;
+  document.getElementById('join').style.display = 'none';
+  const wait = document.getElementById('wait');
+  wait.classList.add('show');
+  const tag = document.getElementById('waitRole');
+  tag.textContent = role === 'legs' ? 'You are LEGS' : 'You are ARMS';
+  tag.className = 'roleTag ' + role;
+});
+
+socket.on('game-started', () => {
+  document.getElementById('wait').classList.remove('show');
+  buildPad(myRole);
+  document.getElementById('pad').classList.add('show');
+});
+
+socket.on('screen-left', () => { location.reload(); });
+
+// ---- Controller ------------------------------------------------------------
+function buildPad(role) {
+  const header = document.getElementById('padHeader');
+  header.className = 'padHeader ' + role;
+  header.innerHTML = role === 'legs' ? '<b>LEGS</b> · movement' : '<b>ARMS</b> · attack';
+
+  document.getElementById('stickNub').className = role;
+  document.getElementById('stickHint').textContent = role === 'legs' ? 'move' : 'aim';
+
+  const btnZone = document.getElementById('btnZone');
+  btnZone.innerHTML = '';
+  if (role === 'legs') {
+    btnZone.appendChild(makeButton('JUMP', 'jump', () => send({action:'jump'})));
+    btnZone.appendChild(makeButton('DASH', 'dash', () => send({action:'dash'})));
+    btnZone.appendChild(makeButton('KICK', 'kick', () => send({action:'kick'})));
+  } else {
+    btnZone.appendChild(makeButton('SHOOT', 'shoot', () => send({action:'shoot'})));
+    btnZone.appendChild(makeButton('PUNCH', 'punch', () => send({action:'punch'})));
+    const thrust = makeButton('THRUST', 'thrust', null);
+    thrust.classList.add('dim');
+    thrust.id = 'thrustBtn';
+    // hold-to-thrust
+    thrust.addEventListener('pointerdown', e => { e.preventDefault(); send({action:'thrust', down:true}); });
+    thrust.addEventListener('pointerup',   e => { e.preventDefault(); send({action:'thrust', down:false}); });
+    thrust.addEventListener('pointercancel', () => send({action:'thrust', down:false}));
+    thrust.addEventListener('pointerleave', () => send({action:'thrust', down:false}));
+    btnZone.appendChild(thrust);
+  }
+  setupStick(role);
+}
+
+function makeButton(label, cls, onTap) {
+  const b = document.createElement('button');
+  b.className = 'btn ' + cls;
+  b.innerHTML = label;
+  if (onTap) b.addEventListener('pointerdown', e => { e.preventDefault(); onTap(); });
+  return b;
+}
+
+// thrusters availability from screen
+socket.on('screen-state', (s) => {
+  if (myRole !== 'arms') return;
+  const t = document.getElementById('thrustBtn');
+  if (!t) return;
+  if (s.thrustersAvailable) { t.classList.add('live'); t.classList.remove('dim'); }
+  else { t.classList.remove('live'); t.classList.add('dim'); }
+});
+
+// ---- Joystick --------------------------------------------------------------
+function setupStick(role) {
+  const zone = document.getElementById('stickZone');
+  const base = document.getElementById('stickBase');
+  const nub  = document.getElementById('stickNub');
+  let active = null; // pointerId
+  let ox=0, oy=0;
+  const MAXR = 60;
+  let lastSent = 0;
+
+  function place(el, x, y){ el.style.left = x+'px'; el.style.top = y+'px'; }
+
+  zone.addEventListener('pointerdown', e => {
+    if (active !== null) return;
+    active = e.pointerId; ox = e.clientX; oy = e.clientY;
+    base.style.display = nub.style.display = 'block';
+    place(base, ox, oy); place(nub, ox, oy);
+    zone.setPointerCapture(e.pointerId);
+  });
+  zone.addEventListener('pointermove', e => {
+    if (e.pointerId !== active) return;
+    let dx = e.clientX - ox, dy = e.clientY - oy;
+    const d = Math.hypot(dx, dy);
+    const cl = Math.min(d, MAXR);
+    const ang = Math.atan2(dy, dx);
+    place(nub, ox + Math.cos(ang)*cl, oy + Math.sin(ang)*cl);
+
+    const now = performance.now();
+    if (now - lastSent > 40) { // throttle ~25/s
+      lastSent = now;
+      if (role === 'legs') {
+        send({ action:'move', x: Math.max(-1, Math.min(1, dx/MAXR)) });
+      } else {
+        const len = d || 1;
+        send({ action:'aim', x: dx/len, y: dy/len });
+      }
+    }
+  });
+  function end(e){
+    if (e.pointerId !== active) return;
+    active = null;
+    base.style.display = nub.style.display = 'none';
+    if (role === 'legs') send({ action:'move', x: 0 });
+  }
+  zone.addEventListener('pointerup', end);
+  zone.addEventListener('pointercancel', end);
+}
+
+function send(msg){ socket.emit('input', msg); }
+</script>
+</body>
+</html>

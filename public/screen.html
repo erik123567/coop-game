@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Co-op Split Control — Screen</title>
+<style>
+  :root {
+    --bg: #0b0e14; --bg2: #131826; --ground: #2a3040; --ground2: #353d52;
+    --legs: #3d8bfd; --arms: #ff5d5d; --text: #e6ebf5; --muted: #8a93a8;
+    --accent: #ffcf5d; --goal: #4ade80; --heart: #ff4d6d;
+    --walker: #b06bff; --flyer: #4fd6c9; --turret: #ff9f43; --hazard: #ff3b52; --locked: #6a7488;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  #app { width: 100vw; height: 100vh; position: relative; }
+
+  #lobby { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 26px; background: radial-gradient(circle at 50% 30%, var(--bg2), var(--bg)); }
+  #lobby h1 { font-size: 26px; font-weight: 700; }
+  #lobby h1 .l { color: var(--legs); } #lobby h1 .a { color: var(--arms); }
+  .codebox { text-align: center; }
+  .codebox .label { font-size: 13px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+  .code { font-size: 72px; font-weight: 800; letter-spacing: 12px; color: var(--accent); }
+  #qr { background: #fff; padding: 12px; border-radius: 10px; }
+  .roster { display: flex; gap: 24px; }
+  .slot { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-radius: 10px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); font-size: 15px; min-width: 210px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #444a5a; transition: background .2s; }
+  .slot.on .dot { background: var(--goal); box-shadow: 0 0 10px var(--goal); }
+  .slot .who { color: var(--muted); }
+  .slot.legs .role { color: var(--legs); font-weight: 700; } .slot.arms .role { color: var(--arms); font-weight: 700; }
+  #startBtn { background: var(--goal); color: #06110a; border: none; padding: 15px 40px; border-radius: 10px;
+    font-size: 16px; font-weight: 700; cursor: pointer; opacity: 0.5; }
+  #startBtn.ready { opacity: 1; }
+  #joinUrl { font-size: 13px; color: var(--muted); }
+  #joinUrl b { color: var(--text); }
+
+  #game { position: absolute; inset: 0; display: none; }
+  canvas { display: block; }
+  #hud { position: absolute; top: 0; left: 0; right: 0; padding: 14px 20px; pointer-events: none;
+    display: flex; align-items: flex-start; justify-content: space-between; }
+  #hearts { font-size: 26px; letter-spacing: 3px; }
+  #levelInfo { text-align: center; }
+  #levelName { font-size: 16px; font-weight: 700; }
+  #objective { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  #objective.clear { color: var(--goal); }
+  #controlsHint { position: absolute; bottom: 12px; left: 0; right: 0; text-align: center; pointer-events: none;
+    font-size: 12px; color: var(--muted); }
+  #controlsHint b.l { color: var(--legs); } #controlsHint b.a { color: var(--arms); }
+  #banner { position: absolute; top: 42%; left: 0; right: 0; text-align: center; pointer-events: none;
+    font-size: 40px; font-weight: 800; opacity: 0; transition: opacity .3s; }
+  #banner.show { opacity: 1; }
+  #overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column;
+    gap: 16px; background: rgba(8,10,16,0.9); text-align: center; }
+  #overlay.show { display: flex; }
+  #overlay h2 { font-size: 34px; }
+  #overlay h2.win { color: var(--goal); } #overlay h2.dead { color: var(--hazard); }
+  #overlay p { color: var(--muted); font-size: 14px; }
+  #overlay button { background: var(--legs); color: #fff; border: none; padding: 13px 32px; border-radius: 9px;
+    font-size: 15px; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="lobby">
+    <h1><span class="l">Legs</span> + <span class="a">Arms</span> — one body, two players</h1>
+    <div class="codebox"><div class="label">Room code</div><div class="code" id="code">····</div></div>
+    <div id="qr"></div>
+    <div id="joinUrl">Open the join URL on each phone and enter the code</div>
+    <div class="roster">
+      <div class="slot legs" id="slotLegs"><span class="dot"></span><span><span class="role">Legs</span> <span class="who">— move, jump, kick, dash</span></span></div>
+      <div class="slot arms" id="slotArms"><span class="dot"></span><span><span class="role">Arms</span> <span class="who">— aim, shoot, punch, thrust</span></span></div>
+    </div>
+    <button id="startBtn">Start</button>
+  </div>
+
+  <div id="game">
+    <canvas id="canvas"></canvas>
+    <div id="hud">
+      <div id="hearts"></div>
+      <div id="levelInfo"><div id="levelName"></div><div id="objective"></div></div>
+      <div style="width:120px"></div>
+    </div>
+    <div id="controlsHint"><b class="l">Legs</b>: move · jump/double · kick · dash &nbsp;|&nbsp; <b class="a">Arms</b>: aim · shoot · punch · thrust (after a jump)</div>
+    <div id="banner"></div>
+    <div id="overlay">
+      <h2 id="overlayTitle"></h2>
+      <p id="overlaySub"></p>
+      <button id="overlayBtn">Retry</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const socket = io();
+let myCode = null;
+
+socket.emit('create-room');
+socket.on('room-created', ({ code, host, port, candidates }) => {
+  myCode = code;
+  document.getElementById('code').textContent = code;
+  const ip = host || window.location.hostname;
+  const base = 'http://' + ip + ':' + (port || 3000) + '/';
+  new QRCode(document.getElementById('qr'), { text: base + '?code=' + code, width: 150, height: 150 });
+  let html = 'On each phone open <b>' + base + '</b> and enter the code';
+  const alts = (candidates || []).filter(c => c !== ip);
+  if (alts.length) html += '<br><span style="opacity:.65">Not connecting? Try: '
+    + alts.map(a => 'http://' + a + ':' + (port || 3000) + '/').join(' &nbsp;·&nbsp; ') + '</span>';
+  document.getElementById('joinUrl').innerHTML = html;
+});
+
+let roster = { legs: false, arms: false };
+socket.on('roster', (r) => {
+  roster = r;
+  document.getElementById('slotLegs').classList.toggle('on', r.legs);
+  document.getElementById('slotArms').classList.toggle('on', r.arms);
+  document.getElementById('startBtn').classList.toggle('ready', r.legs || r.arms);
+});
+document.getElementById('startBtn').addEventListener('click', () => {
+  if (!roster.legs && !roster.arms) return;
+  socket.emit('start-game');
+});
+socket.on('game-started', () => {
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  startGame();
+});
+
+// ===========================================================================
+// GAME
+// ===========================================================================
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+const GRAVITY = 1600, MOVE_SPEED = 330, JUMP_VELOCITY = 640, DOUBLE_MULT = 0.9;
+const DASH_SPEED = 720, DASH_TIME = 0.16, DASH_CD = 0.5;
+const KICK_TIME = 0.14, KICK_CD = 0.3, KICK_REACH = 46;
+const PUNCH_TIME = 0.12, PUNCH_CD = 0.25, PUNCH_REACH = 40;
+const BULLET_SPEED = 950, SHOOT_CD = 0.22;
+const THRUST_FORCE = 2100, THRUST_MAXUP = 520;
+const MAX_HEALTH = 5, IFRAME_TIME = 1.0, CONTACT_KNOCK = 320;
+
+const inp = { legs: { moveX: 0 }, arms: { aimX: 1, aimY: 0, thrust: false } };
+const queue = { jump:false, kick:false, dash:false, shoot:false, punch:false };
+socket.on('input', (m) => {
+  if (m.role === 'legs') {
+    if (m.action === 'move') inp.legs.moveX = m.x;
+    if (m.action === 'jump') queue.jump = true;
+    if (m.action === 'kick') queue.kick = true;
+    if (m.action === 'dash') queue.dash = true;
+  } else if (m.role === 'arms') {
+    if (m.action === 'aim') { inp.arms.aimX = m.x; inp.arms.aimY = m.y; }
+    if (m.action === 'shoot') queue.shoot = true;
+    if (m.action === 'punch') queue.punch = true;
+    if (m.action === 'thrust') inp.arms.thrust = m.down;
+  }
+});
+
+// Enemy types: 'walker' (chases on ground), 'flyer' (floats toward you), 'turret' (stationary shooter)
+function buildLevels() {
+  const gy = H * 0.80;
+  return [
+    {
+      name: 'Room 1 — Warm-up',
+      spawn: { x: 60, y: gy - 62 },
+      platforms: [ {x:-200,w:1400,y:gy}, {x:500,w:180,y:gy-120}, {x:820,w:180,y:gy-200} ],
+      hazards: [],
+      enemies: [ {type:'walker',x:400,y:gy-34}, {type:'walker',x:700,y:gy-34}, {type:'flyer',x:880,y:gy-260} ],
+      exit: { x: 1120, y: gy - 90, w: 40, h: 90 },
+    },
+    {
+      name: 'Room 2 — Up and over',
+      spawn: { x: 60, y: gy - 62 },
+      platforms: [ {x:-200,w:700,y:gy}, {x:760,w:120,y:gy}, {x:1000,w:520,y:gy-40}, {x:1150,w:300,y:gy-240} ],
+      hazards: [ {x:500,y:gy-14,w:260,h:14} ],
+      enemies: [ {type:'flyer',x:600,y:gy-220}, {type:'flyer',x:1050,y:gy-320}, {type:'turret',x:1250,y:gy-286} ],
+      exit: { x: 1400, y: gy - 330, w: 40, h: 90 },
+    },
+    {
+      name: 'Room 3 — Crossing',
+      spawn: { x: 60, y: gy - 62 },
+      platforms: [ {x:-200,w:560,y:gy}, {x:1180,w:900,y:gy}, {x:640,w:150,y:gy-30, move:{axis:'x', range:180, speed:90}} ],
+      hazards: [ {x:360,y:gy-14,w:820,h:14} ],
+      enemies: [ {type:'walker',x:1350,y:gy-34}, {type:'walker',x:1550,y:gy-34}, {type:'flyer',x:900,y:gy-220}, {type:'turret',x:1700,y:gy-34} ],
+      exit: { x: 1950, y: gy - 90, w: 40, h: 90 },
+    },
+  ];
+}
+
+let LEVELS, levelIndex, level, player, enemies, bullets, eBullets, effects, camX;
+let health, invuln, flashT, state, thrustPrev, bannerT;
+
+function makeEnemy(def) {
+  const base = { alive: true, seed: Math.random()*6.28, vx: 0, vy: 0, fireT: 1 + Math.random() };
+  if (def.type === 'walker') return { ...base, type:'walker', x:def.x, y:def.y, w:34, h:34, hp:2, homeX:def.x };
+  if (def.type === 'flyer')  return { ...base, type:'flyer',  x:def.x, y:def.y, w:32, h:26, hp:2, homeY:def.y };
+  if (def.type === 'turret') return { ...base, type:'turret', x:def.x, y:def.y, w:38, h:38, hp:3 };
+}
+
+function loadLevel(i, refill) {
+  LEVELS = buildLevels();
+  level = LEVELS[i];
+  levelIndex = i;
+  player = { x: level.spawn.x, y: level.spawn.y, w:40, h:62, vx:0, vy:0, facing:1, onGround:true,
+    jumpsUsed:0, jumpInitiated:false, dashT:0, dashCd:0, kickT:0, kickCd:0, punchT:0, punchCd:0, shootCd:0 };
+  enemies = level.enemies.map(makeEnemy);
+  level.platforms.forEach(p => { if (p.move) { p.baseX = p.x; p.baseY = p.y; p.phase = 0; p.prevX = p.x; p.prevY = p.y; } });
+  bullets = []; eBullets = []; effects = []; camX = 0;
+  invuln = 0; flashT = 0; thrustPrev = null;
+  if (refill) health = MAX_HEALTH;
+  state = 'play';
+  showBanner(level.name);
+  updateHUD();
+}
+
+function startGame(){ health = MAX_HEALTH; loadLevel(0, true); requestAnimationFrame(frame); }
+function showBanner(text){ const b = document.getElementById('banner'); b.textContent = text; b.classList.add('show'); bannerT = 1.6; }
+
+function overlap(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+function playerRect(){ return { x:player.x, y:player.y, w:player.w, h:player.h }; }
+function enemiesLeft(){ return enemies.filter(e => e.alive).length; }
+function hurtEnemies(box, dmg){
+  for (const e of enemies) if (e.alive && overlap(box, e)) {
+    e.hp -= dmg; if (e.hp <= 0) { e.alive = false; effects.push({x:e.x+e.w/2,y:e.y+e.h/2,t:0.3,max:0.3}); }
+  }
+}
+function damagePlayer(amount, fromX){
+  if (invuln > 0 || state !== 'play') return;
+  health -= amount; invuln = IFRAME_TIME; flashT = 0.25;
+  const dir = (player.x + player.w/2) < fromX ? -1 : 1;
+  player.vx = dir * CONTACT_KNOCK; player.vy = -260;
+  updateHUD();
+  if (health <= 0) { state = 'dead'; showOverlay('dead'); }
+}
+
+function update(dt) {
+  if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) document.getElementById('banner').classList.remove('show'); }
+  if (state !== 'play') return;
+  const p = player;
+
+  for (const pl of level.platforms) if (pl.move) {
+    pl.prevX = pl.x; pl.prevY = pl.y; pl.phase += dt * pl.move.speed / pl.move.range;
+    const off = Math.sin(pl.phase) * pl.move.range;
+    if (pl.move.axis === 'x') pl.x = pl.baseX + off; else pl.y = pl.baseY + off;
+  }
+
+  p.dashCd = Math.max(0,p.dashCd-dt); p.kickCd = Math.max(0,p.kickCd-dt);
+  p.punchCd = Math.max(0,p.punchCd-dt); p.shootCd = Math.max(0,p.shootCd-dt);
+  if (p.dashT>0) p.dashT-=dt; if (p.kickT>0) p.kickT-=dt; if (p.punchT>0) p.punchT-=dt;
+  if (invuln>0) invuln-=dt; if (flashT>0) flashT-=dt;
+
+  if (Math.abs(inp.legs.moveX) > 0.06) p.facing = inp.legs.moveX > 0 ? 1 : -1;
+  if (p.dashT > 0) p.vx = p.facing * DASH_SPEED; else p.vx = inp.legs.moveX * MOVE_SPEED;
+
+  if (queue.jump) {
+    if (p.onGround) { p.vy = -JUMP_VELOCITY; p.onGround = false; p.jumpsUsed = 1; p.jumpInitiated = true; }
+    else if (p.jumpsUsed < 2) { p.vy = -JUMP_VELOCITY*DOUBLE_MULT; p.jumpsUsed = 2; }
+  }
+  if (queue.dash && p.dashCd === 0) { p.dashT = DASH_TIME; p.dashCd = DASH_CD; }
+  if (queue.kick && p.kickCd === 0) { p.kickT = KICK_TIME; p.kickCd = KICK_CD; }
+
+  const thrustersAvail = !p.onGround && p.jumpInitiated;
+  if (inp.arms.thrust && thrustersAvail) { p.vy -= THRUST_FORCE*dt; if (p.vy < -THRUST_MAXUP) p.vy = -THRUST_MAXUP; }
+  if (thrustersAvail !== thrustPrev) { socket.emit('screen-state', { thrustersAvailable: thrustersAvail }); thrustPrev = thrustersAvail; }
+
+  if (queue.shoot && p.shootCd === 0) {
+    p.shootCd = SHOOT_CD;
+    const len = Math.hypot(inp.arms.aimX, inp.arms.aimY) || 1;
+    bullets.push({ x:p.x+p.w/2, y:p.y+p.h*0.35, vx:inp.arms.aimX/len*BULLET_SPEED, vy:inp.arms.aimY/len*BULLET_SPEED, life:1.4 });
+  }
+  if (queue.punch && p.punchCd === 0) { p.punchT = PUNCH_TIME; p.punchCd = PUNCH_CD; }
+  queue.jump = queue.kick = queue.dash = queue.shoot = queue.punch = false;
+
+  p.vy += GRAVITY*dt; p.x += p.vx*dt; p.y += p.vy*dt;
+
+  p.onGround = false;
+  for (const pl of level.platforms) {
+    if (p.x+p.w > pl.x && p.x < pl.x+pl.w) {
+      if (p.y+p.h > pl.y && p.y+p.h - p.vy*dt <= pl.y + 2) {
+        p.y = pl.y - p.h; p.vy = 0; p.onGround = true;
+        if (pl.move) { p.x += (pl.x - pl.prevX); p.y += (pl.y - pl.prevY); }
+      }
+    }
+  }
+  if (p.onGround) { p.jumpsUsed = 0; p.jumpInitiated = false; }
+
+  for (const hz of level.hazards) if (overlap(playerRect(), hz)) damagePlayer(1, p.x+p.w/2);
+  if (p.y > H + 300) { health = 0; updateHUD(); state = 'dead'; showOverlay('dead'); }
+
+  if (p.kickT > 0) hurtEnemies({ x: p.facing>0?p.x+p.w:p.x-KICK_REACH, y:p.y+p.h*0.55, w:KICK_REACH, h:p.h*0.4 }, 1);
+  if (p.punchT > 0) { const d = inp.arms.aimX>=0?1:-1; hurtEnemies({ x:d>0?p.x+p.w:p.x-PUNCH_REACH, y:p.y+p.h*0.1, w:PUNCH_REACH, h:p.h*0.4 }, 1); }
+
+  for (const b of bullets) { b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+    for (const e of enemies) if (e.alive && b.x>e.x && b.x<e.x+e.w && b.y>e.y && b.y<e.y+e.h) {
+      e.hp-=1; b.life=0; if (e.hp<=0){ e.alive=false; effects.push({x:e.x+e.w/2,y:e.y+e.h/2,t:0.3,max:0.3}); } }
+  }
+  bullets = bullets.filter(b => b.life > 0);
+
+  const pcx = p.x+p.w/2, pcy = p.y+p.h/2;
+  for (const e of enemies) { if (!e.alive) continue;
+    e.seed += dt;
+    if (e.type === 'walker') {
+      const dir = pcx > e.x+e.w/2 ? 1 : -1;
+      const dist = Math.abs(pcx - (e.x+e.w/2));
+      e.x += (dist < 360 ? dir*70 : Math.sin(e.seed)*40) * dt;
+    } else if (e.type === 'flyer') {
+      e.x += Math.sign(pcx-(e.x+e.w/2)) * 55 * dt;
+      e.y += Math.sign(pcy-(e.y+e.h/2)) * 40 * dt + Math.sin(e.seed*2)*0.4;
+    } else if (e.type === 'turret') {
+      e.fireT -= dt;
+      if (e.fireT <= 0) { e.fireT = 1.8;
+        const dx = pcx-(e.x+e.w/2), dy = pcy-(e.y+e.h/2), l = Math.hypot(dx,dy)||1;
+        eBullets.push({ x:e.x+e.w/2, y:e.y+e.h/2, vx:dx/l*380, vy:dy/l*380, life:3 });
+      }
+    }
+    if (overlap(playerRect(), e)) damagePlayer(1, e.x+e.w/2);
+  }
+
+  for (const b of eBullets) { b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+    if (overlap(playerRect(), {x:b.x-5,y:b.y-5,w:10,h:10})) { damagePlayer(1, b.x); b.life = 0; } }
+  eBullets = eBullets.filter(b => b.life > 0);
+
+  for (const fx of effects) fx.t -= dt;
+  effects = effects.filter(fx => fx.t > 0);
+
+  const cleared = enemiesLeft() === 0;
+  updateObjective(cleared);
+  if (cleared && overlap(playerRect(), level.exit)) {
+    if (levelIndex + 1 < LEVELS.length) loadLevel(levelIndex + 1, true);
+    else { state = 'win'; showOverlay('win'); }
+  }
+  camX = Math.max(0, p.x - W*0.35);
+}
+
+function updateHUD(){
+  let h = '';
+  for (let i=0;i<MAX_HEALTH;i++) h += `<span style="color:${i<health?css('--heart'):'#39404f'}">♥</span>`;
+  document.getElementById('hearts').innerHTML = h;
+  document.getElementById('levelName').textContent = level ? level.name : '';
+}
+function updateObjective(cleared){
+  const o = document.getElementById('objective');
+  if (cleared) { o.textContent = 'Exit open — reach the flag →'; o.classList.add('clear'); }
+  else { o.textContent = `Clear all enemies (${enemiesLeft()} left)`; o.classList.remove('clear'); }
+}
+
+function draw() {
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, css('--bg2')); g.addColorStop(1, css('--bg'));
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  ctx.save(); ctx.translate(-camX, 0);
+
+  for (const pl of level.platforms) {
+    ctx.fillStyle = pl.move ? css('--ground2') : css('--ground');
+    ctx.fillRect(pl.x, pl.y, pl.w, H);
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(pl.x, pl.y, pl.w, 4);
+  }
+  for (const hz of level.hazards) {
+    ctx.fillStyle = css('--hazard');
+    const n = Math.floor(hz.w/14);
+    for (let i=0;i<n;i++){ ctx.beginPath(); const x=hz.x+i*14;
+      ctx.moveTo(x, hz.y+hz.h); ctx.lineTo(x+7, hz.y-8); ctx.lineTo(x+14, hz.y+hz.h); ctx.fill(); }
+  }
+  const ex = level.exit, cleared = enemiesLeft() === 0;
+  if (cleared) {
+    ctx.fillStyle = css('--goal'); ctx.fillRect(ex.x, ex.y, 6, ex.h);
+    ctx.beginPath(); ctx.moveTo(ex.x+6, ex.y); ctx.lineTo(ex.x+42, ex.y+13); ctx.lineTo(ex.x+6, ex.y+26); ctx.fill();
+  } else {
+    ctx.strokeStyle = css('--locked'); ctx.lineWidth = 4;
+    ctx.strokeRect(ex.x-6, ex.y, ex.w+12, ex.h);
+    for (let y=ex.y+10; y<ex.y+ex.h; y+=16){ ctx.beginPath(); ctx.moveTo(ex.x-6,y); ctx.lineTo(ex.x+ex.w+6,y); ctx.stroke(); }
+  }
+
+  for (const e of enemies) { if (!e.alive) continue;
+    if (e.type === 'walker') { ctx.fillStyle = css('--walker'); ctx.fillRect(e.x,e.y,e.w,e.h);
+      ctx.fillStyle='#fff'; ctx.fillRect(e.x+7,e.y+10,6,6); ctx.fillRect(e.x+e.w-13,e.y+10,6,6); }
+    else if (e.type === 'flyer') { ctx.fillStyle = css('--flyer');
+      ctx.beginPath(); ctx.ellipse(e.x+e.w/2,e.y+e.h/2,e.w/2,e.h/2,0,0,6.28); ctx.fill();
+      ctx.fillStyle='#0b0e14'; ctx.fillRect(e.x+e.w/2-6,e.y+e.h/2-3,4,4); ctx.fillRect(e.x+e.w/2+2,e.y+e.h/2-3,4,4); }
+    else if (e.type === 'turret') { ctx.fillStyle = css('--turret'); ctx.fillRect(e.x,e.y,e.w,e.h);
+      ctx.fillStyle='#0b0e14'; ctx.fillRect(e.x+e.w/2-4,e.y+8,8,e.h-16); }
+  }
+  for (const fx of effects){ const r=(1-fx.t/fx.max)*26+4; ctx.globalAlpha=fx.t/fx.max;
+    ctx.strokeStyle=css('--accent'); ctx.lineWidth=3; ctx.beginPath(); ctx.arc(fx.x,fx.y,r,0,6.28); ctx.stroke(); ctx.globalAlpha=1; }
+  ctx.fillStyle = css('--arms'); for (const b of bullets){ ctx.beginPath(); ctx.arc(b.x,b.y,6,0,6.28); ctx.fill(); }
+  ctx.fillStyle = css('--turret'); for (const b of eBullets){ ctx.beginPath(); ctx.arc(b.x,b.y,7,0,6.28); ctx.fill(); }
+
+  const p = player;
+  if (!(invuln > 0 && Math.floor(invuln*20)%2)) {
+    ctx.fillStyle = css('--legs'); ctx.fillRect(p.x, p.y+p.h*0.5, p.w, p.h*0.5);
+    ctx.fillStyle = css('--arms'); ctx.fillRect(p.x, p.y, p.w, p.h*0.5);
+    const len = Math.hypot(inp.arms.aimX, inp.arms.aimY)||1;
+    ctx.strokeStyle = css('--arms'); ctx.lineWidth = 3; ctx.beginPath();
+    ctx.moveTo(p.x+p.w/2, p.y+p.h*0.28); ctx.lineTo(p.x+p.w/2+inp.arms.aimX/len*34, p.y+p.h*0.28+inp.arms.aimY/len*34); ctx.stroke();
+    if (p.kickT>0){ ctx.globalAlpha=0.6; ctx.fillStyle=css('--legs'); const kx=p.facing>0?p.x+p.w:p.x-KICK_REACH; ctx.fillRect(kx,p.y+p.h*0.55,KICK_REACH,p.h*0.4); ctx.globalAlpha=1; }
+    if (p.punchT>0){ ctx.globalAlpha=0.6; ctx.fillStyle=css('--arms'); const d=inp.arms.aimX>=0?1:-1; const px=d>0?p.x+p.w:p.x-PUNCH_REACH; ctx.fillRect(px,p.y+p.h*0.1,PUNCH_REACH,p.h*0.4); ctx.globalAlpha=1; }
+    if (inp.arms.thrust && !p.onGround && p.jumpInitiated){ ctx.fillStyle=css('--accent');
+      ctx.beginPath(); ctx.moveTo(p.x+8,p.y+p.h); ctx.lineTo(p.x+p.w-8,p.y+p.h); ctx.lineTo(p.x+p.w/2,p.y+p.h+18); ctx.fill(); }
+  }
+  ctx.restore();
+
+  if (flashT > 0){ ctx.fillStyle = `rgba(255,59,82,${flashT*0.5})`; ctx.fillRect(0,0,W,H); }
+}
+
+let last = performance.now();
+function frame(now){ const dt = Math.min(0.033,(now-last)/1000); last = now; update(dt); draw(); requestAnimationFrame(frame); }
+
+function showOverlay(kind){
+  const ov = document.getElementById('overlay'), t = document.getElementById('overlayTitle'),
+        s = document.getElementById('overlaySub'), b = document.getElementById('overlayBtn');
+  t.className = kind;
+  if (kind === 'win'){ t.textContent = 'You cleared every room!'; s.textContent = 'Nice teamwork.'; b.textContent = 'Play Again'; }
+  else { t.textContent = 'Down!'; s.textContent = 'The shared health bar ran out.'; b.textContent = 'Retry Room'; }
+  ov.classList.add('show');
+}
+document.getElementById('overlayBtn').addEventListener('click', () => {
+  document.getElementById('overlay').classList.remove('show');
+  if (state === 'win') { health = MAX_HEALTH; loadLevel(0, true); }
+  else loadLevel(levelIndex, true);
+});
+
+socket.on('player-left', () => {});
+</script>
+</body>
+</html>
