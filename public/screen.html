@@ -314,7 +314,7 @@
         <div class="slot arms" id="slotArms"><span class="dot"></span><span><span class="role">Arms</span> <span class="who">— aim · shoot · punch · thrust</span></span></div>
       </div>
       <button id="startBtn">▶ Start</button>
-      <div id="soloHint">No phones? Press <b>Enter</b> or click <b>Start</b> to test solo from this keyboard.</div>
+      <div id="soloHint">No phones? Press <b>Enter</b> to play solo from this keyboard.</div>
     </div>
   </div>
 
@@ -434,7 +434,7 @@ function menuShop(){
 // Commands coming FROM a phone menu.
 socket.on('menu', (m) => {
   switch (m.cmd) {
-    case 'start':  if (!gameEntered) socket.emit('start-game'); break;
+    case 'start':  if (!gameEntered && bothPlayersIn()) socket.emit('start-game'); break;
     case 'deploy': if (state === 'map') { const i = m.world|0; if (i <= save.maxWorld && i < buildLevels().length) launchWorld(i); } break;
     case 'shop':   if (state === 'map') openShop(() => showGalaxy(), 'Back to galaxy map →'); break;
     case 'buy':    if (state === 'shop') buyUpgrade(m.track); break;
@@ -448,16 +448,25 @@ socket.on('menu', (m) => {
 });
 
 let roster = { legs: false, arms: false };
+function bothPlayersIn(){ return roster.legs && roster.arms; }
+function refreshLobby(){
+  const both = bothPlayersIn();
+  document.getElementById('slotLegs').classList.toggle('on', roster.legs);
+  document.getElementById('slotArms').classList.toggle('on', roster.arms);
+  const sb = document.getElementById('startBtn');
+  sb.classList.toggle('ready', both);
+  sb.disabled = !both;
+  sb.textContent = both ? '▶ Start' : 'Waiting for both players…';
+  if (!gameEntered) currentMenu = { menu: 'lobby', legs: roster.legs, arms: roster.arms, ready: both };
+}
 socket.on('roster', (r) => {
   roster = r;
-  document.getElementById('slotLegs').classList.toggle('on', r.legs);
-  document.getElementById('slotArms').classList.toggle('on', r.arms);
-  socket.emit('screen-state', currentMenu);   // catch a newly-joined phone up to the current menu
+  refreshLobby();
+  socket.emit('screen-state', currentMenu);   // catch a newly-joined phone up to the current lobby/menu state
 });
-// Always startable: with two phones for real play, or solo from this keyboard.
-document.getElementById('startBtn').classList.add('ready');
+refreshLobby();   // Start stays disabled until BOTH phones join (keyboard Enter still starts solo).
 document.getElementById('startBtn').addEventListener('click', () => {
-  socket.emit('start-game');
+  if (bothPlayersIn()) socket.emit('start-game');   // real play needs both roles connected
 });
 socket.on('game-started', () => {
   if (gameEntered) return; gameEntered = true;
