@@ -773,10 +773,10 @@ function buildLevels() {
       name: 'Sector 3 · Cinder Reach', world: 'cinder',
       intro: 'A forge-world. This is where the swarm builds its heavies. Cut the supply before it marches.',
       spawn: { x: 60, y: gy - 62 },
-      platforms: [ {x:-200,w:560,y:gy}, {x:1180,w:900,y:gy}, {x:640,w:150,y:gy-30, move:{axis:'x', range:180, speed:90}} ],
-      hazards: [ {x:360,y:gy-14,w:820,h:14} ],
+      platforms: [ {x:-200,w:800,y:gy}, {x:920,w:1160,y:gy}, {x:640,w:150,y:gy-30, move:{axis:'x', range:120, speed:85}} ],
+      hazards: [ {x:600,y:gy-14,w:320,h:14} ],   // narrowed lava gap (was 820) — one demanding mechanic, not three
       enemies: [ {type:'flyer',x:850,y:gy-200}, {type:'walker',x:1300,y:gy-34}, {type:'flyer',x:1500,y:gy-260},
-                 {type:'turret',x:1900,y:gy-34}, {type:'portal',x:1650,y:gy-58,spawns:'hopper',cap:3} ],
+                 {type:'turret',x:1050,y:gy-34} ],   // rift removed — the Forge is the challenge here
       boss: { type:'forge', x: 1350 },   // armored: only the COMBO cracks it; jump the pound, shield the charge
       exit: { x: 1950, y: gy - 90, w: 40, h: 90 },
     },
@@ -969,8 +969,8 @@ function makeBoss(def){
   if (def.type === 'warden')     return { ...base, type:'warden', name:'WARDEN PRIME', y:gy-116, w:92, h:116, maxHp:24, hp:24, needsVulnerable:true };
   if (def.type === 'bloom')      return { ...base, type:'bloom', name:'BLOOM MOTHER', y:gy-300, w:76, h:70, maxHp:30, hp:30, groundY:gy, spawnT:2.5, spitT:2 };
   if (def.type === 'forge')      return { ...base, type:'forge', name:'THE FORGEMASTER', y:gy-120, w:100, h:120, maxHp:22, hp:22, comboOnly:true, atk:'pound', chargeDir:1 };
-  if (def.type === 'progenitor') return { ...base, type:'progenitor', name:'THE PROGENITOR', y:gy-150, w:150, h:150, maxHp:24, hp:24, beamT:3,
-                                          cores:[{dx:34,dy:70,lit:0},{dx:116,dy:70,lit:0}] };
+  if (def.type === 'progenitor') return { ...base, type:'progenitor', name:'THE PROGENITOR', y:gy-150, w:200, h:150, maxHp:20, hp:20, beamT:3,
+                                          cores:[{dx:30,dy:70,lit:0},{dx:170,dy:70,lit:0}] };   // cores far apart → one combo can't light both
 }
 function bossRect(){ return { x:boss.x, y:boss.y, w:boss.w, h:boss.h }; }
 function coreCenter(i){ return { x: boss.x + boss.cores[i].dx, y: boss.y + boss.cores[i].dy }; }
@@ -1102,7 +1102,8 @@ function loadLevel(i, refill) {
   player = { x: level.spawn.x, y: level.spawn.y, w:40, h:62, vx:0, vy:0, facing:1, onGround:true, prevOnGround:true,
     jumpsUsed:0, jumpInitiated:false, dashT:0, dashCd:0, kickT:0, kickCd:0, punchT:0, punchCd:0, shootCd:0, squashT:0,
     animPhase:0, blinkT: 1.5 + Math.random()*3, blink:0, coyoteT:0, jumpBufferT:0,
-    wallDir:0, wallCoyoteT:0, wallJumpT:0, wallJumpVx:0, onWallNow:false, groundRefY: level.spawn.y + 62 };
+    wallDir:0, wallCoyoteT:0, wallJumpT:0, wallJumpVx:0, onWallNow:false, groundRefY: level.spawn.y + 62,
+    lastSafeX: level.spawn.x, lastSafeY: level.spawn.y };
   enemies = level.enemies.map(makeEnemy);
   boss = level.boss ? makeBoss(level.boss) : null;
   level.platforms.forEach(p => { if (p.move) { p.baseX = p.x; p.baseY = p.y; p.phase = 0; p.prevX = p.x; p.prevY = p.y; } });
@@ -1231,8 +1232,10 @@ function triggerCombo(){
     }
   }
   if (boss && !boss.dead && boss.state !== 'dormant') {
-    if (boss.type === 'progenitor') {                    // combo = the synced two-player action → detonate
-      for (let i=0;i<2;i++){ const c=coreCenter(i); if (Math.hypot(c.x-cx, c.y-cy) < COMBO_RADIUS+70) progenitorCoreHit(i); }
+    if (boss.type === 'progenitor') {                    // a combo lights only the NEAREST core — you must light the
+      let ni=-1, nd=1e9;                                 // other one (shot or strike) within its window to sync-detonate
+      for (let i=0;i<2;i++){ const c=coreCenter(i); const d=Math.hypot(c.x-cx, c.y-cy); if (d < COMBO_RADIUS+40 && d < nd){ nd=d; ni=i; } }
+      if (ni>=0) progenitorCoreHit(ni);
     } else {
       const bcx = boss.x+boss.w/2, bcy = boss.y+boss.h/2;
       if (Math.hypot(bcx-cx, bcy-cy) < COMBO_RADIUS + 46) damageBoss(COMBO_DMG + (stats.dmg-1), true);
@@ -1380,6 +1383,7 @@ function update(dt) {
       if (p.vy >= 0 && p.y+p.h > pl.y && p.y+p.h - p.vy*dt <= pl.y + 2) {
         p.y = pl.y - p.h; p.vy = 0; p.onGround = true;
         if (pl.move) { p.x += (pl.x - pl.prevX); p.y += (pl.y - pl.prevY); }
+        if (!pl.move) { p.lastSafeX = p.x; p.lastSafeY = p.y - 6; }   // checkpoint on any solid ledge (not moving platforms)
       }
     }
   }
@@ -1405,7 +1409,14 @@ function update(dt) {
       if (Math.random() < 0.5) spawnParticles(p.x+p.w/2, p.y+p.h/2, css('--accent'), 1, 180, {life:0.2, size:2, grav:0});
     } else damagePlayer(1, p.x+p.w/2);                     // unshielded: 1 dmg (invuln rate-limits it) + knockback
   }
-  if (p.y > (level.deathY != null ? level.deathY : H + 300)) { health = 0; run.death = 'fall'; updateHUD(); state = 'dead'; SFX.dead(); showOverlay('dead'); }
+  if (p.y > (level.deathY != null ? level.deathY : H + 300)) {
+    if (!level.descend && health > 1 && p.lastSafeX != null) {   // pit = lose a heart + respawn on last solid ground (couch-co-op friendly)
+      health -= 1; run.hitsTaken++; invuln = IFRAME_TIME; flashT = 0.42;
+      p.x = p.lastSafeX; p.y = p.lastSafeY; p.vx = 0; p.vy = 0; p.onGround = false;
+      SFX.hurt(); addShake(16); hitStopT = Math.max(hitStopT, 0.05); rumblePhones('hurt');
+      spawnHitNum(p.x+p.w/2, p.y-8, '-1', css('--hazard'), true); updateHUD();
+    } else { health = 0; run.death = 'fall'; updateHUD(); state = 'dead'; SFX.dead(); showOverlay('dead'); }
+  }
 
   if (p.kickT > 0) {   // uppercut — launches enemies airborne (once per swing → juggling) AND strikes a boss weak point
     const box = { x: p.facing>0? p.x+p.w*0.3 : p.x-KICK_REACH*0.8, y: p.y-8, w: KICK_REACH, h: p.h*0.85 };

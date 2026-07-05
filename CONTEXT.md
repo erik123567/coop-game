@@ -332,6 +332,23 @@ whole region beneath its x-span solid. Consequences when hand-building:
   steps (~180-190w, ~10-20px gaps) so jumps are forgiving. Verified both vertical levels reach
   the exit with jump-only bots; Kepler Ascent fully clears.
 
+## Balance pass (2026-07-05, from a full bot playtest)
+- PROGENITOR (Sector 4 boss) was combo-cheesable: cores 82px apart but a combo lit everything
+  within 205px, so ONE combo detonated both cores. Fixed: cores widened to 140px apart (w:200,
+  dx 30/170), and a combo now lights only the NEAREST core. To sync-detonate you must light the
+  OTHER core (a shot or strike) within its ~0.9s window — real two-player coordination. HP 24→20.
+  Verified: 1 combo = 1 core lit / 0 dmg; coordinated play kills it in 5 syncs.
+- SECTOR 3 was over-stacked (rift + 820px lava pit + combo boss). Removed the portal/rift and
+  narrowed the pit to 320px. The Forge is the challenge now.
+- PIT-RESPAWN (couch-co-op friendly): falling past the death plane no longer instakills. It costs
+  1 heart and respawns you at the last static ledge you touched (`p.lastSafeX/Y`, recorded on
+  landing on any non-moving platform). Only full death if it was your last heart. Guarded off for
+  `level.descend`. This softens every lava/pit level (Sector 2/3, Verdant Causeway, Cinder Updraft).
+- Note: a pit-blind bot still "dies by fall" on the moving-platform crossings (it walks into lava
+  ~7x); that's bot dumbness, not a level defect — the crossings are completable by a real player.
+- Progenitor is now un-cheeseable → my bot can't beat it (needs precise core aiming). If real
+  playtest shows it's too hard, reduce core spacing or widen the sync window.
+
 ## Known constraints
 - Local-WiFi only right now (no remote play yet).
 - Solo testing is hard (co-op needs 2 people) — hence the debug mode task.
