@@ -508,6 +508,7 @@ const SHAKE_MAX = 15;
 const COMBO_WINDOW = 0.17, COMBO_CD = 0.7, COMBO_RADIUS = 135, COMBO_DMG = 4, COMBO_KNOCK = 60;
 // Coordination — Co-op Shield: BOTH players hold Guard at once → damage-blocking bubble (drains a meter)
 const SHIELD_DRAIN = 0.55, SHIELD_REGEN = 0.30, SHIELD_RADIUS = 54, SHIELD_MIN = 0.02;
+const HAZARD_SHIELD_DRAIN = 0.16;   // extra shield cost per second while blocking a hazard band (descent tunnels)
 // Enemies that DEMAND the coordination moves:
 //   Brute  — armored; only a Combo Strike cracks the armor, then it's vulnerable.
 //   Charger — winds up, then lunges fast; block the lunge with the Shield, punish the recovery.
@@ -858,6 +859,18 @@ function buildLevels() {
                  {type:'leech',x:860,y:gy-470}, {type:'flyer',x:1000,y:gy-500}, {type:'turret',x:1220,y:gy-568} ],
       exit: { x: 1260, y: gy - 620, w: 40, h: 90 },
     },
+    {   // UNDERWATER DESCENT — sink down a trench; SHIELD through the vent bands, time it so the meter holds
+      name: 'Abyssal Descent', world: 'abyss',
+      intro: 'The signal sank into an ocean trench. Drop in and let the water take you down — but hydrothermal vents scald the shaft in bands. Raise the SHIELD (both of you, together) to pass each one, then drop it to recharge before the next. Cling to a wall or thrust up if you need to slow down.',
+      spawn: { x: 620, y: gy - 300 },
+      descend: true, gravityScale: 0.4, sinkMax: 250, deathY: gy + 2850, bubbles: true,
+      platforms: [ {x:180,w:320,y:gy-340}, {x:800,w:320,y:gy-340}, {x:180,w:940,y:gy+2450} ],   // two tunnel walls + a floor at the bottom
+      hazards: [ {x:500,y:gy+160,w:300,h:130},                // full band — raise the SHIELD together
+                 {x:500,y:gy+1090,w:190,h:130},               // partial — steer into the right gap (or shield through)
+                 {x:500,y:gy+2020,w:300,h:130} ],             // final full band — shield
+      enemies: [],                                            // pure descent — surviving to the floor IS the objective
+      exit: { x: 620, y: gy + 2360, w: 40, h: 90 },
+    },
     {   // HARD TIMED — everything at once, tight clock
       name: 'Kepler Crucible', world: 'kepler',
       intro: 'Back where it began — but the swarm has learned. Everything at once, one clock. Prove the unit.',
@@ -909,6 +922,12 @@ const THEMES = {
     planet:['#cfe8ff','#7fb0e0','#3a5a90'], rim:'rgba(190,233,255,0.45)', ring:true,
     sil:{shape:'crystals', color:'rgba(20,36,58,0.78)', lights:'rgba(150,230,255,0.22)'}, star:'#eaf6ff', fog:'rgba(80,160,220,0.06)',
   },
+  abyss: {   // deep-ocean trench (underwater): dark teal, heavy fog, drifting motes
+    css:{'--bg':'#010a10','--bg2':'#04202f','--ground':'#06303c','--ground2':'#0b4a56','--hull-edge':'#39d3d0','--accent':'#5ff0e0'},
+    nebula:[[0.28,0.30,360,'rgba(18,120,150,0.20)'],[0.72,0.34,320,'rgba(24,80,150,0.16)'],[0.5,0.68,440,'rgba(50,180,180,0.10)']],
+    planet:['#2a7f97','#12506b','#07293a'], rim:'rgba(95,240,224,0.4)', ring:false,
+    sil:{shape:'spires', color:'rgba(5,32,42,0.82)', lights:'rgba(95,240,224,0.20)'}, star:'#bfeaff', fog:'rgba(18,90,120,0.12)',
+  },
 };
 let worldTheme = THEMES.kepler;
 function applyTheme(key){
@@ -920,6 +939,7 @@ function applyTheme(key){
 let LEVELS, levelIndex, level, player, enemies, bullets, eBullets, effects, camX, camY;
 let health, invuln, flashT, state, thrustPrev, bannerT;
 let particles, shake, hitStopT, comboCd, kickWin, punchWin, comboFlash;
+let hitNums, dashGhosts;   // floating damage numbers + dash afterimages (juice)
 let shield, shieldActive, clearedAnnounced, coins, energy, boss, run, roomTimer, clearDelay;
 function resetRun(){ run = { jumps:0, dashes:0, shots:0, shotHits:0, punches:0, combos:0, thrustS:0,
   killLegs:0, killArms:0, killCombo:0, hitsTaken:0, eLegs:0, eArms:0, death:null }; }
@@ -1086,7 +1106,7 @@ function loadLevel(i, refill) {
   enemies = level.enemies.map(makeEnemy);
   boss = level.boss ? makeBoss(level.boss) : null;
   level.platforms.forEach(p => { if (p.move) { p.baseX = p.x; p.baseY = p.y; p.phase = 0; p.prevX = p.x; p.prevY = p.y; } });
-  bullets = []; eBullets = []; effects = []; particles = []; coins = [];
+  bullets = []; eBullets = []; effects = []; particles = []; coins = []; hitNums = []; dashGhosts = [];
   camX = Math.max(0, (player.x + player.w/2) - W*0.42);          // snap camera to the player at load
   camY = (player.y + player.h) - H*0.78;
   invuln = 0; flashT = 0; thrustPrev = null;
@@ -1144,6 +1164,10 @@ function spawnParticles(x, y, color, count, spd, opts={}){
       life, max: life, color, size: (opts.size||3)*(0.6+Math.random()*0.8), grav });
   }
 }
+// Floating hit/status number — rises and fades for readable, punchy feedback.
+function spawnHitNum(x, y, text, color, big){
+  hitNums.push({ x: x + (Math.random()*14 - 7), y, text: String(text), color, life: big ? 0.85 : 0.6, max: big ? 0.85 : 0.6, big: !!big, vy: -90 });
+}
 const COIN_VALUE = { walker:1, flyer:1, turret:2, hopper:2, charger:3, brute:5, leech:2, portal:4 };
 function killEnemy(e, source){
   e.alive = false;
@@ -1173,6 +1197,8 @@ function hitEnemy(e, dmg, isCombo, source){
   }
   spawnParticles(e.x+e.w/2, e.y+e.h/2, css('--accent'), 7, 300, {life:0.32, size:3});
   spawnParticles(e.x+e.w/2, e.y+e.h/2, '#ffffff', 3, 220, {life:0.12, size:2, grav:0});   // white impact spark
+  const numColor = source==='combo' ? css('--accent') : source==='legs' ? css('--legs') : source==='arms' ? css('--arms') : '#fff';
+  spawnHitNum(e.x+e.w/2, e.y - 4, dmg, numColor, isCombo);                          // floating damage number
   SFX.hitEnemy(); addShake(6); hitStopT = Math.max(hitStopT, 0.03);                 // brief crunch every hit
   if (e.hp <= 0) killEnemy(e, source);
 }
@@ -1214,6 +1240,7 @@ function triggerCombo(){
   }
   effects.push({ x:cx, y:cy, t:0.4, max:0.4, big:true });
   spawnParticles(cx, cy, css('--accent'), 26, 480, {life:0.6, size:4, grav:260});
+  spawnHitNum(cx, cy - 30, 'COMBO!', css('--accent'), true);
   comboFlash = 0.25; addShake(24); hitStopT = Math.max(hitStopT, 0.09); SFX.combo();
 }
 function rumblePhones(kind){ try { socket.emit('screen-state', { rumble: kind }); } catch(e){} }
@@ -1224,6 +1251,7 @@ function damagePlayer(amount, fromX){
     spawnParticles(player.x+player.w/2, player.y+player.h/2, css('--accent'), 8, 260, {life:0.35, size:3, grav:200});
     spawnParticles(player.x+player.w/2, player.y+player.h/2, '#ffffff', 4, 240, {life:0.12, size:2, grav:0});
     SFX.shieldBlock(); addShake(6); hitStopT = Math.max(hitStopT, 0.03); shield = Math.max(0, shield - 0.12);
+    spawnHitNum(player.x+player.w/2, player.y - 6, 'BLOCK', css('--visor'), false);
     rumblePhones('block'); return;
   }
   if (invuln > 0) return;
@@ -1232,6 +1260,7 @@ function damagePlayer(amount, fromX){
   player.vx = dir * CONTACT_KNOCK; player.vy = -300;
   spawnParticles(player.x+player.w/2, player.y+player.h/2, css('--hazard'), 12, 340, {life:0.5, size:3});
   spawnParticles(player.x+player.w/2, player.y+player.h/2, '#ffffff', 4, 220, {life:0.13, size:2, grav:0});
+  spawnHitNum(player.x+player.w/2, player.y - 8, '-' + amount, css('--hazard'), true);
   SFX.hurt(); addShake(20); hitStopT = Math.max(hitStopT, 0.07);   // freeze-frame — you feel it
   rumblePhones('hurt');
   updateHUD();
@@ -1298,6 +1327,7 @@ function update(dt) {
       spawnParticles(p.x+p.w/2, p.y+p.h*0.7, css('--legs'), 6, 160, {life:0.3, size:3, vx:-p.facing*120}); }
     else SFX.denied();
   }
+  if (p.dashT > 0) dashGhosts.push({ x:p.x, y:p.y, w:p.w, h:p.h, facing:p.facing, life:0.22, max:0.22 });  // motion trail
   if (queue.kick && !shieldActive && p.kickCd === 0) { p.kickT = KICK_TIME; p.kickCd = KICK_CD; p.kickId = (p.kickId||0)+1; SFX.kick();
     if (punchWin > 0) { triggerCombo(); kickWin = punchWin = 0; } else kickWin = COMBO_WINDOW; }
 
@@ -1316,7 +1346,8 @@ function update(dt) {
     if (kickWin > 0) { triggerCombo(); kickWin = punchWin = 0; } else punchWin = COMBO_WINDOW; }
   queue.jump = queue.kick = queue.dash = queue.shoot = queue.punch = false;
 
-  p.vy += GRAVITY*dt;
+  p.vy += GRAVITY * (level.gravityScale || 1) * dt;                        // buoyancy on underwater levels
+  if (level.sinkMax && p.vy > level.sinkMax) p.vy = level.sinkMax;         // steady terminal sink for descent tunnels
 
   // horizontal move + WALL collision (platforms are solid columns from pl.y down)
   p.x += p.vx*dt;
@@ -1368,8 +1399,13 @@ function update(dt) {
   if (p.blinkT <= 0) { p.blink = 0.12; p.blinkT = 1.8 + Math.random()*3.5; }
   if (p.blink > 0) p.blink -= dt;
 
-  for (const hz of level.hazards) if (overlap(playerRect(), hz)) damagePlayer(1, p.x+p.w/2);
-  if (p.y > H + 300) { health = 0; run.death = 'fall'; updateHUD(); state = 'dead'; SFX.dead(); showOverlay('dead'); }
+  for (const hz of level.hazards) if (overlap(playerRect(), hz)) {
+    if (shieldActive) {                                    // blocking a hazard costs the meter at a survivable per-second rate
+      shield = Math.max(0, shield - HAZARD_SHIELD_DRAIN*dt);
+      if (Math.random() < 0.5) spawnParticles(p.x+p.w/2, p.y+p.h/2, css('--accent'), 1, 180, {life:0.2, size:2, grav:0});
+    } else damagePlayer(1, p.x+p.w/2);                     // unshielded: 1 dmg (invuln rate-limits it) + knockback
+  }
+  if (p.y > (level.deathY != null ? level.deathY : H + 300)) { health = 0; run.death = 'fall'; updateHUD(); state = 'dead'; SFX.dead(); showOverlay('dead'); }
 
   if (p.kickT > 0) {   // uppercut — launches enemies airborne (once per swing → juggling) AND strikes a boss weak point
     const box = { x: p.facing>0? p.x+p.w*0.3 : p.x-KICK_REACH*0.8, y: p.y-8, w: KICK_REACH, h: p.h*0.85 };
@@ -1484,6 +1520,14 @@ function update(dt) {
   effects = effects.filter(fx => fx.t > 0);
   for (const pt of particles) { pt.vy += pt.grav*dt; pt.x += pt.vx*dt; pt.y += pt.vy*dt; pt.life -= dt; }
   particles = particles.filter(pt => pt.life > 0);
+  for (const n of hitNums) { n.y += n.vy*dt; n.vy += 55*dt; n.life -= dt; }
+  hitNums = hitNums.filter(n => n.life > 0);
+  for (const g of dashGhosts) g.life -= dt;
+  dashGhosts = dashGhosts.filter(g => g.life > 0);
+  if (level.bubbles && Math.random() < 0.6) {   // underwater ambiance: bubbles drift up around the view
+    particles.push({ x: p.x + (Math.random()*720-360), y: p.y + H*0.35, vx:(Math.random()*20-10), vy:-35-Math.random()*45,
+      life: 1.4, max:1.4, color:'rgba(150,230,255,0.45)', size: 1+Math.random()*2.5, grav:-14 });
+  }
 
   // coins: magnet toward player, settle on ground, collect on contact
   let gotCoin = false;
@@ -1522,12 +1566,17 @@ function update(dt) {
   const camMidX = p.x+p.w/2, camMidY = p.y+p.h/2;
   if (p.onGround) p.groundRefY = p.y + p.h;                      // vertical tracks the ground you stand on, not each jump
   const targetX = camMidX - W*0.42 + p.facing*90;               // look-ahead in facing direction
-  const targetY = p.groundRefY - H*0.78;
   camX += (targetX - camX) * Math.min(1, dt*5);
-  camY += (targetY - camY) * Math.min(1, dt*3);                  // slower vertical = gentler
-  if (camMidY - camY < H*0.18) camY = camMidY - H*0.18;         // safety: follow up if you fly high (thrust/high exits)
   camX = Math.max(0, camX);
-  camY = Math.min(camY, H*0.05);                                 // don't scroll below the base ground into the void
+  if (level.descend) {                                          // drop-tunnel: camera follows the player straight down
+    const targetY = camMidY - H*0.40;
+    camY += (targetY - camY) * Math.min(1, dt*6);
+  } else {
+    const targetY = p.groundRefY - H*0.78;
+    camY += (targetY - camY) * Math.min(1, dt*3);               // slower vertical = gentler
+    if (camMidY - camY < H*0.18) camY = camMidY - H*0.18;       // safety: follow up if you fly high (thrust/high exits)
+    camY = Math.min(camY, H*0.05);                              // don't scroll below the base ground into the void
+  }
 }
 
 function updateHUD(){
@@ -1951,6 +2000,10 @@ function draw() {
   ctx.fillStyle = css('--arms'); for (const b of bullets){ ctx.beginPath(); ctx.arc(b.x,b.y,6,0,6.28); ctx.fill(); }
   ctx.fillStyle = css('--turret'); for (const b of eBullets){ ctx.beginPath(); ctx.arc(b.x,b.y,7,0,6.28); ctx.fill(); }
 
+  for (const g of dashGhosts){ ctx.globalAlpha = (g.life/g.max)*0.4; ctx.fillStyle = css('--legs');
+    ctx.fillRect(g.x, g.y, g.w, g.h); }                       // dash afterimage streak
+  ctx.globalAlpha = 1;
+
   if (boss) drawBoss();
   const p = player;
   drawPlayer(p);
@@ -1962,6 +2015,15 @@ function draw() {
     ctx.globalAlpha=0.9; ctx.lineWidth=3; ctx.strokeStyle=css('--accent'); ctx.beginPath(); ctx.arc(cx,cy,r,0,6.28); ctx.stroke();
     ctx.restore();
   }
+  // Floating damage / status numbers (drawn last, on top of the action)
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for (const n of hitNums){
+    const a = Math.min(1, (n.life/n.max)*1.7), sz = n.big ? 30 : 20;
+    ctx.globalAlpha = a; ctx.font = '800 ' + sz + 'px -apple-system, "Segoe UI", sans-serif';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.strokeText(n.text, n.x, n.y);
+    ctx.fillStyle = n.color; ctx.fillText(n.text, n.x, n.y);
+  }
+  ctx.globalAlpha=1; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
   ctx.restore();
 
   // vignette for depth

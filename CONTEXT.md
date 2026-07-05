@@ -290,7 +290,27 @@ state-machine broadcasts all round-trip cleanly.
 7. Content volume — 7 levels/4 bosses is a demo arc, not a full campaign.
 8. Boss set-pieces still TODO: Warden shockwave-dash, Forge charge-dodge counter.
 
-## Levels (12, in buildLevels())
+## Hit feel / juice (screen.html)
+On top of existing shake + hit-stop + particles + white sparks + phone rumble:
+- Floating damage NUMBERS (`hitNums`/`spawnHitNum`): colored by source (legs-blue/arms-red/
+  combo-accent), "-N" in hazard red when the player is hurt, "BLOCK" on a shield block,
+  "COMBO!" big on a Combo Strike. Rise + fade, drawn on top in world space.
+- Dash AFTERIMAGE (`dashGhosts`): faded legs-blue silhouettes trail during a dash.
+Both arrays reset in loadLevel, advanced in update, drawn in draw.
+
+## Underwater / descent engine support (guarded by level flags)
+- `level.gravityScale` scales gravity (buoyancy). `level.sinkMax` caps downward vy (steady
+  sink). `level.descend` makes the camera follow the player straight DOWN (centers vertically,
+  no down-clamp). `level.deathY` overrides the fall-death plane (deep shafts). `level.bubbles`
+  emits rising underwater motes. New biome `abyss` (deep teal + heavy fog).
+- HAZARD-SHIELD interaction: hazards knock an UNSHIELDED player UP (vy=-300) so you bounce off
+  a band and can't pass — this enforces "shield to descend". While shielded, a hazard drains
+  the meter at `HAZARD_SHIELD_DRAIN`/s (0.16) instead of the old 0.12-PER-FRAME (~7/s) that
+  made bands impassable. Base shield drain (0.55/s) is high vs regen (0.30/s), so descent bands
+  must be SHORT (~130px) with BIG gaps (~800px) to be sustainable shielding-through-all.
+  Verified: "Abyssal Descent" (level 10) completes at full health, camera keeps player centered.
+
+## Levels (13, in buildLevels())
 Order = 4 story bosses, then a scaling "trials" run with terrain-shape variety:
 0-3 Sector 1-4 (warden/bloom/forge/progenitor). 4 Kepler Ascent (VERTICAL staircase climb).
 5 Verdant Causeway (LONG HORIZONTAL, sap-pit + drifting-pod ferry). 6 Arena 1 (timed).
