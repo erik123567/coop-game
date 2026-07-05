@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Controller</title>
+<title>SPLIT UNIT — Controller</title>
 <style>
   :root {
     --bg: #0b0e14; --panel: #151b28; --text: #e6ebf5; --muted: #8a93a8;
@@ -12,11 +12,15 @@
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
   html, body { width: 100%; height: 100%; background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; touch-action: none; }
-  #app { width: 100vw; height: 100vh; position: relative; }
+  #app { width: 100vw; height: 100vh; height: 100dvh; position: relative; }   /* dvh = accounts for Safari's toolbars */
 
   /* Join view */
   #join { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; }
-  #join h1 { font-size: 22px; text-align: center; }
+  #join .brand { font-size: 40px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; line-height: 1;
+    background: linear-gradient(100deg, #6aa0ff 0 46%, #eaf1ff 49% 51%, #ff7a72 54% 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #join .brandSub { font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-top: -14px; }
+  #join h1 { font-size: 18px; text-align: center; font-weight: 700; }
   #join p { color: var(--muted); font-size: 14px; text-align: center; }
   #codeInput { font-size: 34px; letter-spacing: 10px; text-align: center; text-transform: uppercase;
     width: 100%; max-width: 280px; padding: 14px; border-radius: 12px; border: 2px solid #2a3242;
@@ -47,37 +51,91 @@
 
   /* Joystick zone (left half) */
   #stickZone { position: absolute; left: 0; top: 0; bottom: 0; width: 50%; }
-  #stickBase { position: absolute; width: 130px; height: 130px; border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.18); display: none; transform: translate(-50%,-50%); }
-  #stickNub { position: absolute; width: 58px; height: 58px; border-radius: 50%; display: none; transform: translate(-50%,-50%); }
+  #stickGhost { position: absolute; left: 50%; top: 58%; transform: translate(-50%,-50%);
+    width: 150px; height: 150px; border-radius: 50%; border: 2px dashed rgba(255,255,255,0.14);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 13px; font-weight: 800; letter-spacing: 2px; pointer-events: none; transition: opacity .15s; }
+  #stickGhost.hide { opacity: 0; }
+  #stickGhost .arrows { font-size: 22px; opacity: 0.5; margin-bottom: 6px; letter-spacing: 0; }
+  #stickBase { position: absolute; width: 140px; height: 140px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.22); display: none; transform: translate(-50%,-50%); }
+  #stickNub { position: absolute; width: 62px; height: 62px; border-radius: 50%; display: none;
+    transform: translate(-50%,-50%); box-shadow: 0 0 22px rgba(0,0,0,0.4); }
   #stickNub.legs { background: var(--legs); } #stickNub.arms { background: var(--arms); }
-  .stickHint { position: absolute; left: 22px; bottom: 22px; font-size: 12px; color: var(--muted); pointer-events: none; }
 
-  /* Buttons zone (right half) */
-  #btnZone { position: absolute; right: 0; top: 0; bottom: 0; width: 50%; display: grid; gap: 14px; padding: 18px;
-    grid-template-columns: 1fr 1fr; align-content: center; }
-  .btn { border-radius: 18px; border: none; font-size: 16px; font-weight: 800; color: #fff; height: 100%;
-    min-height: 84px; display: flex; align-items: center; justify-content: center; cursor: pointer;
-    background: #2a3242; letter-spacing: 0.5px; transition: transform .05s, filter .05s; text-align:center; line-height:1.15; }
-  .btn:active { transform: scale(0.96); filter: brightness(1.2); }
-  .btn.jump { background: var(--legs); } .btn.dash { background: #2e6fd0; }
-  .btn.kick { background: #244a86; grid-column: span 2; }
+  /* Buttons zone (right half) — Netflix-style: round face buttons in a thumb arc, primary larger */
+  #btnZone { position: absolute; right: 0; top: 0; bottom: 0; width: 55%; }
+  .cluster { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px));
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px)); width: 264px; height: 250px; }
+  .btn { position: absolute; border: none; border-radius: 50%; color: #fff; cursor: pointer; background: #2a3242;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    font-size: 15px; font-weight: 800; letter-spacing: 0.3px; line-height: 1.05;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.4); transition: transform .06s, filter .06s; }
+  .btn:active { transform: scale(0.9); filter: brightness(1.25); }
+  .btn .hold { font-size: 8px; font-weight: 800; opacity: 0.85; letter-spacing: 1.5px; margin-top: 1px; }
+  .btn.prim { width: 98px; height: 98px; right: 4px; bottom: 4px; font-size: 20px; }
+  .btn.s1 { width: 78px; height: 78px; right: 22px; bottom: 120px; }   /* up */
+  .btn.s2 { width: 78px; height: 78px; right: 112px; bottom: 96px; }   /* up-left */
+  .btn.s3 { width: 78px; height: 78px; right: 168px; bottom: 20px; }   /* left */
+  .btn.holdbtn { border: 2px dashed rgba(255,255,255,0.5); }
+  .btn.jump { background: var(--legs); } .btn.dash { background: #2e6fd0; } .btn.kick { background: #3a63b0; }
   .btn.shoot { background: var(--arms); } .btn.punch { background: #c23b3b; }
-  .btn.thrust { background: #7a5a1e; grid-column: span 2; color: #ffe6a3; }
-  .btn.thrust.live { background: var(--accent); color: #3a2a00; box-shadow: 0 0 18px var(--accent); }
-  .btn.thrust.dim { opacity: 0.45; }
+  .btn.thrust { background: #7a5a1e; color: #ffe6a3; }
+  .btn.thrust.live { background: var(--accent); color: #3a2a00; box-shadow: 0 0 20px var(--accent); }
+  .btn.thrust.dim { opacity: 0.5; }
+  .btn.guard { background: #2f6d5f; color: #d6fff2; }
+  .btn.guard.held { background: var(--accent); color: #123; box-shadow: 0 0 20px var(--accent); }
+
+  /* Menu view — phones drive the lobby / galaxy map / briefing / shop / death screens */
+  #menu { position: absolute; inset: 0; display: none; flex-direction: column;
+    padding: calc(16px + env(safe-area-inset-top,0px)) 18px calc(18px + env(safe-area-inset-bottom,0px));
+    overflow-y: auto; }
+  #menu.show { display: flex; }
+  .menuTop { display: flex; justify-content: flex-end; min-height: 18px; font-size: 15px; font-weight: 800; color: var(--accent); }
+  .menuTitle { font-size: 24px; font-weight: 800; text-align: center; margin-top: 6px; line-height: 1.15; }
+  .menuSub { font-size: 13px; color: var(--muted); text-align: center; margin-top: 4px; }
+  .menuBody { flex: 1; display: flex; flex-direction: column; gap: 10px; margin: 16px 0; justify-content: center; }
+  .mItem { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%;
+    padding: 14px 16px; border-radius: 12px; background: var(--panel); border: 2px solid #2a3242;
+    color: var(--text); font-size: 16px; font-weight: 700; text-align: left; cursor: pointer; }
+  .mItem:active { filter: brightness(1.3); transform: scale(0.99); }
+  .mItem small { display: block; color: var(--muted); font-weight: 600; font-size: 11px; margin-top: 3px; }
+  .mItem .price { color: var(--accent); font-weight: 800; font-size: 14px; white-space: nowrap; }
+  .mItem.locked { opacity: 0.4; }
+  .mItem.cleared { border-color: var(--goal); }
+  .mItem.cleared .price { color: var(--goal); }
+  .menuActions { display: flex; gap: 10px; }
+  .mBtn { flex: 1; padding: 16px; border-radius: 12px; border: none; font-size: 16px; font-weight: 800;
+    cursor: pointer; background: var(--goal); color: #06110a; }
+  .mBtn:active { filter: brightness(1.15); }
+  .mBtn.big { font-size: 20px; padding: 20px; }
+  .mBtn.alt { background: var(--panel); color: var(--text); border: 2px solid #2a3242; }
+
+  /* Landscape prompt — the controller needs landscape; shown in portrait while playing */
+  #rotate { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 20px; background: var(--bg); z-index: 200; text-align: center; padding: 24px; }
+  #rotate .rotIcon { font-size: 60px; animation: rot 1.8s ease-in-out infinite; }
+  #rotate .rotText { font-size: 18px; font-weight: 800; color: var(--text); line-height: 1.4; }
+  #rotate .rotSub { font-size: 13px; color: var(--muted); }
+  @keyframes rot { 0%,45%{ transform: rotate(0); } 55%,100%{ transform: rotate(-90deg); } }
+  @media (orientation: portrait) {
+    body.in-pad #rotate { display: flex; }
+    body.in-pad #pad { display: none !important; }
+  }
 </style>
 </head>
 <body>
 <div id="app">
   <!-- JOIN -->
   <div id="join">
+    <div class="brand">Split&nbsp;Unit</div>
+    <div class="brandSub">Co-op Mech Brawler</div>
     <h1>Join the game</h1>
     <p>Enter the code shown on the TV</p>
     <input id="codeInput" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="····">
     <div class="roleChoice">
-      <div class="rolePick legs" data-role="legs">Legs<br><small>move · jump · kick · dash</small></div>
-      <div class="rolePick arms" data-role="arms">Arms<br><small>aim · shoot · punch · thrust</small></div>
+      <div class="rolePick legs" data-role="legs">Legs<br><small>move · jump · dash · kick · guard</small></div>
+      <div class="rolePick arms" data-role="arms">Arms<br><small>aim · shoot · punch · thrust · guard</small></div>
     </div>
     <button id="joinBtn">Join</button>
     <div id="joinErr"></div>
@@ -89,15 +147,30 @@
     <p>You're in. Waiting for the TV to start…</p>
   </div>
 
+  <!-- MENU (phone drives lobby / map / briefing / shop / death) -->
+  <div id="menu">
+    <div class="menuTop" id="menuCoins"></div>
+    <div class="menuTitle" id="menuTitle"></div>
+    <div class="menuSub" id="menuSub"></div>
+    <div class="menuBody" id="menuBody"></div>
+    <div class="menuActions" id="menuActions"></div>
+  </div>
+
   <!-- CONTROLLER -->
   <div id="pad">
     <div class="padHeader" id="padHeader"></div>
     <div id="stickZone">
+      <div id="stickGhost"><div class="arrows" id="ghostArrows">◄ ►</div><span id="ghostLabel">MOVE</span></div>
       <div id="stickBase"></div>
       <div id="stickNub"></div>
-      <div class="stickHint" id="stickHint"></div>
     </div>
-    <div id="btnZone"></div>
+    <div id="btnZone"><div class="cluster" id="cluster"></div></div>
+  </div>
+
+  <div id="rotate">
+    <div class="rotIcon">📱</div>
+    <div class="rotText">Turn your phone sideways</div>
+    <div class="rotSub">The controller works in landscape</div>
   </div>
 </div>
 
@@ -130,49 +203,131 @@ socket.on('join-error', ({ message }) => showErr(message));
 
 socket.on('joined', ({ role }) => {
   myRole = role;
-  document.getElementById('join').style.display = 'none';
-  const wait = document.getElementById('wait');
-  wait.classList.add('show');
   const tag = document.getElementById('waitRole');
   tag.textContent = role === 'legs' ? 'You are LEGS' : 'You are ARMS';
   tag.className = 'roleTag ' + role;
+  showView('wait');   // the TV pushes its current menu state (usually 'lobby') right after
 });
 
-socket.on('game-started', () => {
-  document.getElementById('wait').classList.remove('show');
-  buildPad(myRole);
-  document.getElementById('pad').classList.add('show');
-});
+// game-started just means the TV left the lobby. The menu:'...' states that follow
+// (map / briefing / shop / play) drive which view shows. The pad is built lazily.
+socket.on('game-started', () => {});
 
 socket.on('screen-left', () => { location.reload(); });
+
+// ---- Views + phone-driven menus -------------------------------------------
+function showView(v){
+  document.getElementById('join').style.display = (v === 'join') ? 'flex' : 'none';
+  document.getElementById('wait').classList.toggle('show', v === 'wait');
+  document.getElementById('menu').classList.toggle('show', v === 'menu');
+  document.getElementById('pad').classList.toggle('show', v === 'pad');
+  document.body.classList.toggle('in-pad', v === 'pad');   // portrait "rotate" prompt only during play
+}
+let padBuilt = false;
+function ensurePad(){ if (!padBuilt && myRole){ buildPad(myRole); padBuilt = true; } }
+
+function sendMenuCmd(m){ socket.emit('menu', m); if (navigator.vibrate) navigator.vibrate(15); }
+
+function applyMenu(s){
+  if (s.menu === 'play'){ ensurePad(); showView('pad'); return; }
+  renderMenu(s);
+  showView('menu');
+}
+
+function actBtn(label, cls, fn){
+  const b = document.createElement('button');
+  b.className = 'mBtn ' + (cls || '');
+  b.textContent = label;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); fn(); });
+  return b;
+}
+function itemBtn(name, subLabel, price, fn){
+  const b = document.createElement('button');
+  b.className = 'mItem';
+  b.innerHTML = `<span>${name}<small>${subLabel}</small></span><span class="price">${price || ''}</span>`;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); fn(); });
+  return b;
+}
+
+function renderMenu(s){
+  const coins = document.getElementById('menuCoins');
+  const title = document.getElementById('menuTitle');
+  const sub   = document.getElementById('menuSub');
+  const body  = document.getElementById('menuBody');
+  const acts  = document.getElementById('menuActions');
+  coins.textContent = (s.coins != null) ? ('◎ ' + s.coins) : '';
+  body.innerHTML = ''; acts.innerHTML = '';
+
+  if (s.menu === 'lobby'){
+    title.textContent = 'Ready to launch';
+    sub.textContent = myRole ? ('You are ' + myRole.toUpperCase()) : '';
+    acts.appendChild(actBtn('START ▶', 'big', () => sendMenuCmd({ cmd:'start' })));
+  }
+  else if (s.menu === 'map'){
+    title.textContent = 'Galaxy Map';
+    sub.textContent = 'Tap a sector to deploy';
+    (s.sectors || []).forEach((sec, i) => {
+      const status = sec.cleared ? '✓ cleared' : (sec.unlocked ? '▶ ready' : '🔒 locked');
+      const it = itemBtn(sec.name, status, sec.cleared ? '★' : '', () => { if (sec.unlocked) sendMenuCmd({ cmd:'deploy', world:i }); });
+      if (!sec.unlocked) it.classList.add('locked');
+      if (sec.cleared) it.classList.add('cleared');
+      body.appendChild(it);
+    });
+    acts.appendChild(actBtn('🛒 Upgrades', 'alt', () => sendMenuCmd({ cmd:'shop' })));
+  }
+  else if (s.menu === 'briefing'){
+    title.textContent = s.title || 'Mission';
+    sub.textContent = 'Briefing';
+    acts.appendChild(actBtn('DEPLOY ▶', 'big', () => sendMenuCmd({ cmd:'confirm' })));
+  }
+  else if (s.menu === 'shop'){
+    title.textContent = 'Upgrades';
+    sub.textContent = 'Spend coins to power up';
+    (s.upgrades || []).forEach(u => {
+      const maxed = (u.cost == null);
+      const it = itemBtn(u.name, 'Lv ' + u.level + ' / ' + u.max, maxed ? 'MAX' : ('◎ ' + u.cost),
+        () => { if (!maxed) sendMenuCmd({ cmd:'buy', track:u.track }); });
+      if (maxed) it.classList.add('cleared');
+      body.appendChild(it);
+    });
+    acts.appendChild(actBtn('Launch ▶', 'big', () => sendMenuCmd({ cmd:'confirm' })));
+  }
+  else if (s.menu === 'dead'){
+    title.textContent = s.title || (s.win ? 'Victory!' : 'Wrecked');
+    if (s.win){
+      sub.textContent = 'Galaxy secured — great teamwork!';
+      acts.appendChild(actBtn('Return to Map ▶', 'big', () => sendMenuCmd({ cmd:'confirm' })));
+    } else {
+      sub.textContent = 'Try again?';
+      acts.appendChild(actBtn('RETRY', 'big', () => sendMenuCmd({ cmd:'confirm' })));
+      acts.appendChild(actBtn('Galaxy Map', 'alt', () => sendMenuCmd({ cmd:'togalaxy' })));
+    }
+  }
+}
 
 // ---- Controller ------------------------------------------------------------
 function buildPad(role) {
   const header = document.getElementById('padHeader');
   header.className = 'padHeader ' + role;
-  header.innerHTML = role === 'legs' ? '<b>LEGS</b> · movement' : '<b>ARMS</b> · attack';
+  header.innerHTML = role === 'legs' ? '<b>LEGS</b> · movement' : '<b>ARMS</b> · weapons';
 
   document.getElementById('stickNub').className = role;
-  document.getElementById('stickHint').textContent = role === 'legs' ? 'move' : 'aim';
+  document.getElementById('ghostLabel').textContent = role === 'legs' ? 'MOVE' : 'AIM';
+  document.getElementById('ghostArrows').textContent = role === 'legs' ? '◄ ►' : '✥';
 
-  const btnZone = document.getElementById('btnZone');
-  btnZone.innerHTML = '';
+  // Round face buttons in a thumb arc — primary (prim) big at bottom-right, 3 secondaries fan up-left.
+  const cluster = document.getElementById('cluster');
+  cluster.innerHTML = '';
   if (role === 'legs') {
-    btnZone.appendChild(makeButton('JUMP', 'jump', () => send({action:'jump'})));
-    btnZone.appendChild(makeButton('DASH', 'dash', () => send({action:'dash'})));
-    btnZone.appendChild(makeButton('KICK', 'kick', () => send({action:'kick'})));
+    cluster.appendChild(makeButton('JUMP',   'jump prim', () => send({action:'jump'})));
+    cluster.appendChild(makeButton('DASH',   'dash s1',   () => send({action:'dash'})));
+    cluster.appendChild(makeButton('KICK ↑', 'kick s2',   () => send({action:'kick'})));
+    cluster.appendChild(makeHold('GUARD', 'guard s3 holdbtn', 'guard'));
   } else {
-    btnZone.appendChild(makeButton('SHOOT', 'shoot', () => send({action:'shoot'})));
-    btnZone.appendChild(makeButton('PUNCH', 'punch', () => send({action:'punch'})));
-    const thrust = makeButton('THRUST', 'thrust', null);
-    thrust.classList.add('dim');
-    thrust.id = 'thrustBtn';
-    // hold-to-thrust
-    thrust.addEventListener('pointerdown', e => { e.preventDefault(); send({action:'thrust', down:true}); });
-    thrust.addEventListener('pointerup',   e => { e.preventDefault(); send({action:'thrust', down:false}); });
-    thrust.addEventListener('pointercancel', () => send({action:'thrust', down:false}));
-    thrust.addEventListener('pointerleave', () => send({action:'thrust', down:false}));
-    btnZone.appendChild(thrust);
+    cluster.appendChild(makeButton('SHOOT',   'shoot prim', () => send({action:'shoot'})));
+    cluster.appendChild(makeButton('PUNCH ↓', 'punch s1',   () => send({action:'punch'})));
+    cluster.appendChild(makeHold('THRUST', 'thrust s2 holdbtn', 'thrust'));
+    cluster.appendChild(makeHold('GUARD',  'guard s3 holdbtn',  'guard'));
   }
   setupStick(role);
 }
@@ -180,13 +335,34 @@ function buildPad(role) {
 function makeButton(label, cls, onTap) {
   const b = document.createElement('button');
   b.className = 'btn ' + cls;
-  b.innerHTML = label;
+  b.textContent = label;
   if (onTap) b.addEventListener('pointerdown', e => { e.preventDefault(); onTap(); });
+  return b;
+}
+
+// Hold buttons (THRUST, GUARD): press-and-hold, send down/up. Small "HOLD" under the label.
+function makeHold(label, cls, action) {
+  const b = document.createElement('button');
+  b.className = 'btn ' + cls;
+  b.innerHTML = `<span>${label}</span><span class="hold">HOLD</span>`;
+  if (action === 'thrust') { b.id = 'thrustBtn'; b.classList.add('dim'); }
+  const down = e => { e.preventDefault(); if (action === 'guard') b.classList.add('held'); send({action, down:true}); };
+  const up   = e => { if (e) e.preventDefault(); if (action === 'guard') b.classList.remove('held'); send({action, down:false}); };
+  b.addEventListener('pointerdown', down);
+  b.addEventListener('pointerup', up);
+  b.addEventListener('pointercancel', up);
+  b.addEventListener('pointerleave', up);
   return b;
 }
 
 // thrusters availability from screen
 socket.on('screen-state', (s) => {
+  if (s && s.menu) { applyMenu(s); return; }   // menu-state broadcast -> drive the phone's view
+  // Haptics for both players — you feel the hit in your hand.
+  if (s.rumble && navigator.vibrate) {
+    if (s.rumble === 'hurt') navigator.vibrate([40, 30, 40]);
+    else if (s.rumble === 'block') navigator.vibrate(25);
+  }
   if (myRole !== 'arms') return;
   const t = document.getElementById('thrustBtn');
   if (!t) return;
@@ -206,10 +382,12 @@ function setupStick(role) {
 
   function place(el, x, y){ el.style.left = x+'px'; el.style.top = y+'px'; }
 
+  const ghost = document.getElementById('stickGhost');
   zone.addEventListener('pointerdown', e => {
     if (active !== null) return;
     active = e.pointerId; ox = e.clientX; oy = e.clientY;
     base.style.display = nub.style.display = 'block';
+    ghost.classList.add('hide');
     place(base, ox, oy); place(nub, ox, oy);
     zone.setPointerCapture(e.pointerId);
   });
@@ -236,6 +414,7 @@ function setupStick(role) {
     if (e.pointerId !== active) return;
     active = null;
     base.style.display = nub.style.display = 'none';
+    ghost.classList.remove('hide');
     if (role === 'legs') send({ action:'move', x: 0 });
   }
   zone.addEventListener('pointerup', end);

@@ -1,9 +1,13 @@
-# Co-op Split Control — Phase 2 prototype
+# SPLIT UNIT — co-op mech brawler
 
-One character, two players, two phones, one TV.
-**Legs** player moves the body; **Arms** player attacks. Both look at the same screen.
+**One machine. Two pilots.** One character, two players, two phones, one TV.
+The **Legs** player steers the body (move · jump · dash · kick · wall-jump); the **Arms**
+player swings the weapons (aim · shoot · punch · thrust). You share one health bar, one
+energy reactor, and the blame when it all goes wrong.
 
-This is the Jackbox-style setup: the TV is just a web page, phones are web-page controllers, no app install.
+Jackbox-style setup: the TV is just a web page, phones are web-page controllers, no app
+install. The TV is a pure display — **phones drive every menu** (lobby, galaxy map,
+briefing, shop, death screen), so it plays on an actual living-room TV.
 
 ---
 
@@ -36,7 +40,7 @@ Phone join:  http://localhost:3000/
 ```
 
 ### On the TV / laptop
-Open **http://localhost:3000/screen.html** in a browser (plug the laptop into the TV via HDMI, or just use the laptop screen for testing). A room code + QR code appears.
+Open **http://localhost:3000/screen.html** in a browser (plug the laptop into the TV via HDMI, or just use the laptop screen for testing). The **SPLIT UNIT** title screen appears with a room code + QR code.
 
 ### On each phone (same WiFi as the computer)
 Phones can't reach `localhost` — they need your computer's LAN IP.
@@ -49,7 +53,13 @@ Phones can't reach `localhost` — they need your computer's LAN IP.
    (or just scan the QR code on the TV — it already points there).
 3. Enter the 4-character code, pick **Legs** or **Arms**, tap Join.
 
-When both phones are in, press **Start** on the TV.
+When both phones are in, tap **START** on either phone (or press Enter / click Start on the
+TV). From there the phones drive everything — pick a sector on the galaxy map, deploy, buy
+upgrades in the hangar, retry after a wipe — all without touching the TV.
+
+**Solo / no phones?** Press **Enter** (or click **Start**) on the TV to drive both roles
+from the keyboard: `WASD`+`Space` for Legs, arrows + `F`/`G`/`H` for Arms. The on-screen
+hint lists every key.
 
 ---
 
@@ -67,7 +77,10 @@ When both phones are in, press **Start** on the TV.
 - PUNCH button: melee in the aim direction
 - THRUST button: lights up **only after the Legs player jumps** — hold it to boost upward mid-air. (This is the forced-coordination mechanic: Arms can't thrust until Legs commits to a jump.)
 
-Purple blocks are enemies — shoot, punch, or kick them. Reach the green flag to clear the level.
+Kick launches enemies up; punch is a down-swing — chain them for combos. Both players
+holding GUARD together raises a shared shield; a kick + punch landed together triggers a
+combo strike. Clear a room's enemies (or destroy its rifts before the timer runs out) to
+advance, then land on the next world.
 
 ---
 

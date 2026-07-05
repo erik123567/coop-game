@@ -110,6 +110,13 @@ io.on('connection', (socket) => {
     io.to(room.screen).emit('input', { role: socket.data.role, ...msg });
   });
 
+  // --- Phone -> screen: menu navigation (start / pick sector / buy / deploy) --
+  socket.on('menu', (msg) => {
+    const room = rooms[socket.data.room];
+    if (!room) return;
+    io.to(room.screen).emit('menu', { role: socket.data.role, ...msg });
+  });
+
   // --- Screen -> phones: small state updates (thrusters, etc.) --------------
   socket.on('screen-state', (msg) => {
     const code = socket.data.room;
