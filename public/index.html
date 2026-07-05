@@ -343,6 +343,7 @@ function renderMenu(s){
       body.appendChild(it);
     });
     acts.appendChild(actBtn('🛒 Upgrades', 'alt', () => sendMenuCmd({ cmd:'shop' })));
+    acts.appendChild(actBtn('🏆 Ranks', 'alt', () => sendMenuCmd({ cmd:'leaderboard' })));
   }
   else if (s.menu === 'briefing'){
     title.textContent = s.title || 'Mission';

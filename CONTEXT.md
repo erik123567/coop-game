@@ -369,6 +369,24 @@ Per user: the blame card auto-popping every death felt discouraging. Now:
 - Shareable: "⧉ Copy recap" copies a plain-text summary (`window.__recapText`) to clipboard.
 - Phone can drive it: dead-menu "📊 Report" button → menu cmd `report` → screen `toggleReport()`.
 
+## Global leaderboard + level times (2026-07-05)
+- SERVER (server/index.js): JSON-file leaderboard store. `POST /api/score` {team,levelIndex,
+  timeMs,clearedCount,coins} keeps best time per (team,level) + overall progress; `GET
+  /api/leaderboard` returns top-10 times/level + top-25 teams (sectors cleared, then coins).
+  Store path = `process.env.DATA_DIR || ./data`. **Persistence across Railway redeploys needs a
+  VOLUME**: Railway → service → Variables add `DATA_DIR=/data`, then Settings → Volumes mount at
+  `/data`. Without it the board resets on each deploy (still works within a session). `data/` gitignored.
+- CLIENT (screen.html): `runClock` accumulates play time per level (in update, state==='play');
+  completeSector computes clear time → `save.best[levelIndex]` (personal best, localStorage) +
+  submits to /api/score. Banner shows "★ NEW BEST 0:33". Galaxy nodes show your ⏱ best.
+  `save.team` = editable team name (galaxy `#teamName`, defaults to "Unit-XXXX"). "🏆 Leaderboard"
+  button opens `#leaderboard` overlay (openLeaderboard/renderLeaderboard) — overall-progress table
+  + per-level fastest, your team highlighted with your rank. Phone map-menu "🏆 Ranks" → menu cmd
+  `leaderboard` → screen toggles it (TV-mode).
+- Anti-cheat is minimal (client-submitted) — fine for a party game; note if it ever matters.
+- Verified end-to-end: API (submit/replace-best/reject-bad/sort), client timer + best (faster
+  replaces, slower doesn't), submit→server→render with rank + highlight, node times, no errors.
+
 ## Known constraints
 - Local-WiFi only right now (no remote play yet).
 - Solo testing is hard (co-op needs 2 people) — hence the debug mode task.

@@ -178,9 +178,43 @@
   .galaxyHead h1 { font-size: 28px; font-weight: 800; letter-spacing: 3px; }
   .gCoins { font-size: 22px; font-weight: 800; color: var(--accent); }
   .gCoins .cico { text-shadow: 0 0 8px var(--accent); }
-  #galaxyShop, #galaxyNew { background: #17264a; color: #cfe0ff; border: 1px solid rgba(110,242,255,0.3);
+  #galaxyShop, #galaxyNew, #galaxyLeaders { background: #17264a; color: #cfe0ff; border: 1px solid rgba(110,242,255,0.3);
     padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; }
-  #galaxyShop:hover, #galaxyNew:hover { background: #1e3260; }
+  #galaxyShop:hover, #galaxyNew:hover, #galaxyLeaders:hover { background: #1e3260; }
+  #galaxyLeaders { background: linear-gradient(135deg,#3a2f10,#1a2a4a); color: var(--accent); border-color: rgba(255,207,93,0.4); }
+  .teamBar { z-index: 2; margin: -30px 0 26px; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  #teamName { background: rgba(255,255,255,0.06); border: 1px solid rgba(110,242,255,0.3); color: var(--text);
+    border-radius: 8px; padding: 6px 10px; font-size: 14px; font-weight: 700; width: 170px; }
+  .teamHint { opacity: 0.6; font-size: 11px; }
+  /* Leaderboard overlay */
+  #leaderboard { position: absolute; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
+    background: rgba(4,6,15,0.9); backdrop-filter: blur(3px); }
+  #leaderboard.show { display: flex; }
+  .lbCard { width: min(620px, 94vw); max-height: 88vh; overflow-y: auto; background: linear-gradient(180deg,#101a33,#0a1122);
+    border: 1px solid rgba(255,207,93,0.3); border-radius: 16px; padding: 20px 22px; box-shadow: 0 0 44px rgba(0,0,0,0.6); }
+  .lbHead { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .lbHead h2 { font-size: 20px; color: var(--accent); }
+  .lbYou { flex: 1; font-size: 13px; color: var(--muted); }
+  #lbClose { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+  #lbClose:hover { color: var(--text); }
+  .lbSection { font-size: 14px; font-weight: 800; color: var(--text); margin: 14px 0 8px; }
+  .lbHint { font-weight: 500; font-size: 11px; color: var(--muted); }
+  .lbTable { display: flex; flex-direction: column; gap: 4px; }
+  .lbRow { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 8px; background: rgba(255,255,255,0.03); font-size: 14px; }
+  .lbRow.me { background: rgba(255,207,93,0.14); border: 1px solid rgba(255,207,93,0.35); }
+  .lbPos { color: var(--muted); font-weight: 800; width: 34px; }
+  .lbTeam { flex: 1; font-weight: 700; }
+  .lbVal { color: var(--visor); font-weight: 700; font-size: 13px; }
+  .lbRow.me .lbVal { color: var(--accent); }
+  .lbLevels { display: flex; flex-direction: column; gap: 4px; }
+  .lbLvl { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 12px; border-radius: 8px;
+    background: rgba(255,255,255,0.03); font-size: 13px; }
+  .lbLvlName { color: var(--muted); }
+  .lbLvlTimes { display: flex; gap: 16px; }
+  .lbTop { color: var(--accent); font-weight: 700; }
+  .lbMine { color: var(--visor); }
+  .lbLoading { color: var(--muted); text-align: center; padding: 18px; font-size: 13px; line-height: 1.6; }
+  .worldNode .wtime { font-size: 10px; color: var(--accent); font-weight: 700; }
   #galaxyNew { background: transparent; color: var(--muted); border-color: rgba(255,255,255,0.14); }
   #galaxyNew:hover { color: var(--text); }
   #galaxyNew.arm { background: #3a1c24; color: #ff9aa6; border-color: var(--hazard); }
@@ -366,11 +400,21 @@
       <h1>◈ GALAXY MAP</h1>
       <div class="gCoins"><span class="cico">◎</span> <span id="galaxyCoins">0</span></div>
       <button id="galaxyShop">⚙ Hangar</button>
+      <button id="galaxyLeaders">🏆 Leaderboard</button>
       <button id="galaxyNew" title="Erase all progress and start over">⟲ New Game</button>
     </div>
+    <div class="teamBar">Team: <input id="teamName" maxlength="20" spellcheck="false"><span class="teamHint">← your name on the global board</span></div>
     <div id="galaxyRoute"></div>
     <div id="galaxyDone" style="display:none">✦ ALL SECTORS SECURED ✦</div>
     <div class="galaxyHint">Tap a sector on your phone to deploy — or click it here / press its number key</div>
+  </div>
+
+  <!-- Global leaderboard -->
+  <div id="leaderboard">
+    <div class="lbCard">
+      <div class="lbHead"><h2>🏆 Global Leaderboard</h2><span id="lbYou" class="lbYou"></span><button id="lbClose">✕</button></div>
+      <div id="lbBody"></div>
+    </div>
   </div>
 
   <div id="briefing">
@@ -450,6 +494,7 @@ socket.on('menu', (m) => {
       break;
     case 'togalaxy': if (document.getElementById('overlay').classList.contains('show')) document.getElementById('overlayMap').click(); break;
     case 'report':   if (document.getElementById('overlay').classList.contains('show')) toggleReport(); break;
+    case 'leaderboard': if (state === 'map') { const lb = document.getElementById('leaderboard'); lb.classList.contains('show') ? closeLeaderboard() : openLeaderboard(); } break;
   }
 });
 
@@ -625,10 +670,13 @@ const SAVE_KEY = 'coopMechSave_v1';
 const UP_DEFAULT = { hull:0, weapons:0, thrusters:0, shield:0, reactor:0 };
 let save = (() => {
   try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.up) return {
-    coins: s.coins|0, up: { ...UP_DEFAULT, ...s.up }, maxWorld: s.maxWorld|0, cleared: Array.isArray(s.cleared) ? s.cleared : [] }; } catch(e){}
-  return { coins: 0, up: { ...UP_DEFAULT }, maxWorld: 0, cleared: [] };
+    coins: s.coins|0, up: { ...UP_DEFAULT, ...s.up }, maxWorld: s.maxWorld|0, cleared: Array.isArray(s.cleared) ? s.cleared : [],
+    team: s.team || '', best: (s.best && typeof s.best === 'object') ? s.best : {} }; } catch(e){}
+  return { coins: 0, up: { ...UP_DEFAULT }, maxWorld: 0, cleared: [], team: '', best: {} };
 })();
+if (!save.team) save.team = 'Unit-' + Math.random().toString(36).slice(2,6).toUpperCase();   // default team identity for the leaderboard
 function persist(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch(e){} }
+function fmtTime(ms){ if (ms==null) return '—'; const s=Math.max(0,ms)/1000; const m=Math.floor(s/60); return m + ':' + String(Math.floor(s%60)).padStart(2,'0') + '.' + String(Math.floor((s*100)%100)).padStart(2,'0'); }
 
 // cost[curLevel] = price to buy the next level; max = number of levels.
 const UPGRADES = {
@@ -951,7 +999,7 @@ let LEVELS, levelIndex, level, player, enemies, bullets, eBullets, effects, camX
 let health, invuln, flashT, state, thrustPrev, bannerT;
 let particles, shake, hitStopT, comboCd, kickWin, punchWin, comboFlash;
 let hitNums, dashGhosts;   // floating damage numbers + dash afterimages (juice)
-let shield, shieldActive, clearedAnnounced, coins, energy, boss, run, roomTimer, clearDelay;
+let shield, shieldActive, clearedAnnounced, coins, energy, boss, run, roomTimer, clearDelay, runClock;
 function resetRun(){ run = { jumps:0, dashes:0, shots:0, shotHits:0, punches:0, combos:0, thrustS:0,
   killLegs:0, killArms:0, killCombo:0, hitsTaken:0, eLegs:0, eArms:0, death:null }; }
 
@@ -1127,7 +1175,7 @@ function loadLevel(i, refill) {
   shield = 1; shieldActive = false; clearedAnnounced = false; energy = stats.energyMax; resetRun();
   if (refill) health = stats.maxHealth;
   document.getElementById('overlay').classList.remove('show');
-  roomTimer = level.timeLimit || 0; clearDelay = -1;
+  roomTimer = level.timeLimit || 0; clearDelay = -1; runClock = 0;
   document.getElementById('timerHud').className = '';
   state = 'play';
   if (typeof setMenu === 'function') setMenu({ menu:'play' });   // phones -> gameplay controller
@@ -1286,6 +1334,7 @@ function damagePlayer(amount, fromX){
 function update(dt) {
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) document.getElementById('banner').classList.remove('show'); }
   if (state !== 'play') return;
+  runClock += dt;                    // level clear timer (for leaderboard / personal best)
   const p = player;
 
   for (const pl of level.platforms) if (pl.move) {
@@ -1617,12 +1666,65 @@ function completeSector(){
   save.cleared[levelIndex] = true;
   save.maxWorld = Math.max(save.maxWorld, Math.min(LEVELS.length - 1, levelIndex + 1));
   const bonus = firstClear ? CLEAR_BONUS * 2 : CLEAR_BONUS;   // double salvage the first time you clear a sector
-  save.coins += bonus; updateCoinHud(); showBanner('+' + bonus + ' ◎ salvage');
+  save.coins += bonus; updateCoinHud();
+  const timeMs = Math.round((runClock || 0) * 1000);          // clear time → personal best + leaderboard
+  const prevBest = save.best[levelIndex];
+  const newBest = (prevBest == null) || timeMs < prevBest;
+  if (newBest) save.best[levelIndex] = timeMs;
+  showBanner((newBest ? '★ NEW BEST ' : '✓ CLEAR ') + fmtTime(timeMs) + '  ·  +' + bonus + ' ◎');
+  submitScore(levelIndex, timeMs);
   persist();
   const allDone = LEVELS.every((_, i) => save.cleared[i]);
   if (allDone) { state = 'win'; musicStop(); SFX.clear(); showOverlay('win'); }   // final sector → victory ending
   else openShop(() => showGalaxy(), 'Back to galaxy map →');
 }
+
+// ---- Global leaderboard (best clear times + overall progress) --------------
+function submitScore(li, timeMs){
+  if (!save.team) return;
+  const clearedCount = save.cleared.filter(Boolean).length;
+  try {
+    fetch('/api/score', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ team: save.team, levelIndex: li, timeMs, clearedCount, coins: save.coins }) }).catch(()=>{});
+  } catch(e){}
+}
+function openLeaderboard(){
+  const panel = document.getElementById('leaderboard'); panel.classList.add('show');
+  const body = document.getElementById('lbBody'); body.innerHTML = '<div class="lbLoading">Loading global ranks…</div>';
+  fetch('/api/leaderboard').then(r=>r.json()).then(data => renderLeaderboard(data)).catch(() => {
+    body.innerHTML = '<div class="lbLoading">Leaderboard offline — play a run to seed it.<br><span style="opacity:.6">(needs the hosted server)</span></div>';
+  });
+}
+function closeLeaderboard(){ document.getElementById('leaderboard').classList.remove('show'); }
+function renderLeaderboard(data){
+  const LVN = buildLevels().map(l => l.name);
+  const me = save.team;
+  const prog = (data.progress || []);
+  const myRank = prog.findIndex(p => p.team === me);
+  // Progress table
+  let html = '<div class="lbSection">🌍 Overall progress <span class="lbHint">(sectors cleared, then salvage)</span></div><div class="lbTable">';
+  prog.forEach((p, i) => {
+    html += `<div class="lbRow${p.team===me?' me':''}"><span class="lbPos">#${i+1}</span><span class="lbTeam">${esc(p.team)}</span>` +
+            `<span class="lbVal">${p.cleared}/${LVN.length} · ◎${p.coins}</span></div>`;
+  });
+  if (!prog.length) html += '<div class="lbLoading">No teams yet — be the first!</div>';
+  html += '</div>';
+  // Per-level best times
+  html += '<div class="lbSection">⏱ Fastest clears <span class="lbHint">(your best vs the world)</span></div><div class="lbLevels">';
+  LVN.forEach((name, i) => {
+    const rows = (data.levels && data.levels[i]) || [];
+    const top = rows[0];
+    const mineHere = rows.find(r => r.team === me);
+    const myBest = save.best[i];
+    html += `<div class="lbLvl"><div class="lbLvlName">${esc(name)}</div>` +
+            `<div class="lbLvlTimes"><span class="lbTop">${top ? '🥇 '+esc(top.team)+' '+fmtTime(top.ms) : '— unranked —'}</span>` +
+            `<span class="lbMine">you: ${myBest!=null ? fmtTime(myBest) : '—'}${mineHere && top && mineHere.team!==top.team ? '' : ''}</span></div></div>`;
+  });
+  html += '</div>';
+  document.getElementById('lbBody').innerHTML = html;
+  document.getElementById('lbYou').textContent = 'You: ' + me + (myRank>=0 ? '  ·  rank #'+(myRank+1) : '');
+}
+function esc(s){ return String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
 function updateTimerHud(cleared){
   const el = document.getElementById('timerHud'); if (!el) return;
   if (!level.timeLimit) { el.className = ''; el.textContent = ''; return; }
@@ -2205,15 +2307,17 @@ function renderGalaxy(){
   buildGalaxyStars();
   const worlds = buildLevels();
   document.getElementById('galaxyCoins').textContent = save.coins;
+  const tn = document.getElementById('teamName'); if (tn && document.activeElement !== tn) tn.value = save.team;
   const route = document.getElementById('galaxyRoute'); route.innerHTML = '';
   worlds.forEach((w, i) => {
     const unlocked = i <= save.maxWorld, cleared = !!save.cleared[i];
     const t = THEMES[w.world] || THEMES.kepler;
     const node = document.createElement('div');
     node.className = 'worldNode' + (unlocked?'':' locked') + (cleared?' cleared':'');
+    const bestTime = save.best[i] != null ? `<div class="wtime">⏱ ${fmtTime(save.best[i])}</div>` : '';
     node.innerHTML = `<div class="planet" style="background:radial-gradient(circle at 34% 30%, ${t.planet[0]}, ${t.planet[1]} 68%, ${t.planet[2]})"></div>
       <div class="wname">${w.name}</div>
-      <div class="wstatus">${cleared ? '✓ Cleared' : (unlocked ? '▶ Ready' : '🔒 Locked')}</div>`;
+      <div class="wstatus">${cleared ? '✓ Cleared' : (unlocked ? '▶ Ready' : '🔒 Locked')}</div>${bestTime}`;
     if (unlocked) node.addEventListener('click', () => launchWorld(i));
     route.appendChild(node);
     if (i < worlds.length-1){ const c = document.createElement('div'); c.className = 'connector' + (cleared?' done':''); route.appendChild(c); }
@@ -2221,10 +2325,15 @@ function renderGalaxy(){
   document.getElementById('galaxyDone').style.display = worlds.every((w,i)=>save.cleared[i]) ? 'block' : 'none';
 }
 document.getElementById('galaxyShop').addEventListener('click', () => openShop(() => showGalaxy(), 'Back to galaxy map →'));
+document.getElementById('galaxyLeaders').addEventListener('click', openLeaderboard);
+document.getElementById('lbClose').addEventListener('click', closeLeaderboard);
+document.getElementById('teamName').addEventListener('input', (e) => {
+  save.team = (e.target.value || '').replace(/[^\w \-!?.]/g,'').slice(0,20) || 'Anon'; persist();
+});
 
 // Wipe all meta-progression (coins, upgrades, cleared sectors) and rebuild the map.
 function resetSave(){
-  save = { coins: 0, up: { ...UP_DEFAULT }, maxWorld: 0, cleared: [] };
+  save = { coins: 0, up: { ...UP_DEFAULT }, maxWorld: 0, cleared: [], team: save.team, best: {} };   // keep team name, clear best times
   persist(); computeStats(); updateCoinHud(); renderGalaxy();
   if (typeof menuMap === 'function') menuMap();
 }

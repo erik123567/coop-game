@@ -15,6 +15,7 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 const { Server } = require('socket.io');
 
 const PORT = process.env.PORT || 3000;
@@ -44,6 +45,62 @@ function getLanIps() {
 const LAN_IPS = getLanIps();
 
 const app = express();
+app.use(express.json({ limit: '8kb' }));
+
+// ---------------------------------------------------------------------------
+// Global leaderboard — best clear time per level + overall team progress.
+// Stored as a JSON file. Set DATA_DIR to a Railway VOLUME mount for persistence
+// across redeploys (otherwise it lives only until the container restarts).
+// ---------------------------------------------------------------------------
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+const LB_FILE = path.join(DATA_DIR, 'leaderboard.json');
+let board = { levels: {}, teams: {} };
+try { const j = JSON.parse(fs.readFileSync(LB_FILE, 'utf8')); board.levels = j.levels || {}; board.teams = j.teams || {}; } catch (e) {}
+let saveTimer = null;
+function saveBoard() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => { saveTimer = null;
+    try { fs.mkdirSync(DATA_DIR, { recursive: true }); fs.writeFileSync(LB_FILE, JSON.stringify(board)); }
+    catch (e) { console.warn('leaderboard save failed:', e.message); }
+  }, 2000);
+}
+function cleanName(s) { return String(s || '').replace(/[^\w \-!?.]/g, '').trim().slice(0, 20) || 'Anon'; }
+
+// Submit a level clear: best time per team + overall progress (sectors cleared, coins).
+app.post('/api/score', (req, res) => {
+  const b = req.body || {};
+  const team = cleanName(b.team);
+  const li = b.levelIndex | 0;
+  const ms = Math.round(+b.timeMs);
+  const clearedCount = Math.max(0, Math.min(64, b.clearedCount | 0));
+  const coins = Math.max(0, Math.min(9999999, b.coins | 0));
+  if (li < 0 || li > 63) return res.status(400).json({ error: 'bad level' });
+  if (Number.isFinite(ms) && ms > 500 && ms < 3600000) {          // sane per-level time (0.5s–1h)
+    const arr = board.levels[li] || (board.levels[li] = []);
+    const cur = arr.find(e => e.team === team);
+    if (!cur) arr.push({ team, ms }); else if (ms < cur.ms) cur.ms = ms;
+    arr.sort((a, b) => a.ms - b.ms);
+    board.levels[li] = arr.slice(0, 50);
+  }
+  const t = board.teams[team] || (board.teams[team] = { cleared: 0, coins: 0 });
+  t.cleared = Math.max(t.cleared, clearedCount);
+  t.coins = Math.max(t.coins, coins);
+  t.updated = Date.now();
+  saveBoard();
+  res.json({ ok: true });
+});
+
+// Read the board: top-10 times per level + top-25 teams by progress.
+app.get('/api/leaderboard', (req, res) => {
+  const levels = {};
+  for (const k in board.levels) levels[k] = board.levels[k].slice(0, 10);
+  const progress = Object.entries(board.teams)
+    .map(([team, t]) => ({ team, cleared: t.cleared, coins: t.coins }))
+    .sort((a, b) => (b.cleared - a.cleared) || (b.coins - a.coins))
+    .slice(0, 25);
+  res.json({ levels, progress });
+});
+
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const server = http.createServer(app);
