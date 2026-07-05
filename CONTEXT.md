@@ -279,8 +279,12 @@ state-machine broadcasts all round-trip cleanly.
 ## What's still missing for a "final" build (honest, prioritized)
 1. A REAL two-player phone playtest on a TV — nothing above substitutes for it. #1 blocker.
 2. Remote play — currently local-WiFi only; deploy (Fly.io/Railway) for cross-network play.
-3. Pause / resume (couch breaks, mid-game disconnect) — none exists.
-4. Reconnect handling — `player-left` is a no-op; a dropped phone just freezes that role.
+3. Pause / resume (couch breaks) — none exists.
+4. Reconnect handling — DONE. Phones keep a per-tab clientId + session and auto-rejoin/
+   reclaim their role on any socket reconnect ("Reconnecting…" overlay); server does
+   token-based reclaim (no role-stealing, kicks stale socket); screen shows dropped/
+   reconnected banners. Hosted on Railway (github erik123567/coop-game, auto-deploy on push;
+   QR/join uses same-origin when hosted). Start now gated on BOTH players connected.
 5. Onboarding — no first-time "how to play"; relies on button labels + the kb hint.
 6. Audio depth — SFX + adaptive music exist but are thin; no volume/mute UI beyond `M` key.
 7. Content volume — 7 levels/4 bosses is a demo arc, not a full campaign.
