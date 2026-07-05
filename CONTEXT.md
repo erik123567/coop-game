@@ -290,6 +290,28 @@ state-machine broadcasts all round-trip cleanly.
 7. Content volume — 7 levels/4 bosses is a demo arc, not a full campaign.
 8. Boss set-pieces still TODO: Warden shockwave-dash, Forge charge-dodge counter.
 
+## Levels (12, in buildLevels())
+Order = 4 story bosses, then a scaling "trials" run with terrain-shape variety:
+0-3 Sector 1-4 (warden/bloom/forge/progenitor). 4 Kepler Ascent (VERTICAL staircase climb).
+5 Verdant Causeway (LONG HORIZONTAL, sap-pit + drifting-pod ferry). 6 Arena 1 (timed).
+7 Cinder Updraft (UP-AND-DOWN over a lava trench). 8 Arena 2 (timed). 9 Glacius Shafts
+(VERTICAL hard, leeches drain reactor mid-climb + a lift). 10 Kepler Crucible (hard timed).
+11 Arena 3 (finale). New non-boss levels clear by killing all enemies then reaching the exit.
+
+### LEVEL-AUTHORING LESSON (collision model — critical)
+Platforms are `{x,w,y}` SOLID COLUMNS from `y` downward to the abyss (top = floor, sides =
+walls; there is NO underside — you can't pass under a platform). So a HIGH ledge makes the
+whole region beneath its x-span solid. Consequences when hand-building:
+- Stacked/vertical levels must NOT overlap x-spans of ledges you stand on, or the upper
+  ledge's column buries the lower one. Use rising STAIRCASES (adjacent, non-overlapping x).
+- Ground enemies/turrets/portals must not sit under a higher ledge's x-span (they get buried
+  in the pillar). Bullets DO pass through platforms, and flyers/leech IGNORE terrain, so those
+  are only cosmetic; walker/charger/brute move on X only (no gravity) — keep them on wide flats.
+- Jump height ≈ 128px (single, FREE). Keep climb step rises ≤110px so the climb needs no energy
+  (double-jump/thrust cost energy; a leech-drained player must still be able to climb). Widen
+  steps (~180-190w, ~10-20px gaps) so jumps are forgiving. Verified both vertical levels reach
+  the exit with jump-only bots; Kepler Ascent fully clears.
+
 ## Known constraints
 - Local-WiFi only right now (no remote play yet).
 - Solo testing is hard (co-op needs 2 people) — hence the debug mode task.

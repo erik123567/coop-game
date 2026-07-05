@@ -791,6 +791,29 @@ function buildLevels() {
       boss: { type:'progenitor', x: 700 },   // two cores — light BOTH at once (combo, or shoot one + kick other)
       exit: { x: 1600, y: gy - 90, w: 40, h: 90 },
     },
+    // --- Trials: a scaling gauntlet with new terrain shapes (vertical climbs, long
+    //     horizontal runs, up-and-down hazard courses) woven through the timed arenas ---
+    {   // VERTICAL — a rising staircase climb up the spire (steps don't overlap, so none buries another)
+      name: 'Kepler Ascent', world: 'kepler',
+      intro: 'The outpost was just the base. Its comm-spire climbs into the dark, and something is still transmitting from the top. Go up — double-jump the ledges to the summit.',
+      spawn: { x: 60, y: gy - 62 },
+      platforms: [ {x:-200,w:560,y:gy}, {x:360,w:190,y:gy-110}, {x:560,w:190,y:gy-220},
+                   {x:760,w:190,y:gy-330}, {x:960,w:190,y:gy-440}, {x:1160,w:280,y:gy-540} ],
+      hazards: [],
+      enemies: [ {type:'flyer',x:450,y:gy-230}, {type:'turret',x:600,y:gy-258}, {type:'flyer',x:780,y:gy-360}, {type:'leech',x:920,y:gy-420} ],
+      exit: { x: 1270, y: gy - 630, w: 40, h: 90 },
+    },
+    {   // LONG HORIZONTAL — traversal: a sap-pit crossing on a drifting pod, spread mobs
+      name: 'Verdant Causeway', world: 'verdant',
+      intro: 'The Bloom’s roots run for miles. Push east along the causeway — mind the sap pits, and ride the drifting pod across the gap.',
+      spawn: { x: 60, y: gy - 62 },
+      platforms: [ {x:-200,w:640,y:gy}, {x:520,w:130,y:gy-30, move:{axis:'x',range:150,speed:100}},
+                   {x:820,w:440,y:gy}, {x:1000,w:160,y:gy-160}, {x:1360,w:700,y:gy} ],
+      hazards: [ {x:440,y:gy-14,w:360,h:14} ],
+      enemies: [ {type:'walker',x:300,y:gy-34}, {type:'hopper',x:900,y:gy-30}, {type:'leech',x:700,y:gy-180},
+                 {type:'flyer',x:1050,y:gy-260}, {type:'turret',x:1050,y:gy-198}, {type:'walker',x:1450,y:gy-34}, {type:'hopper',x:1650,y:gy-30} ],
+      exit: { x: 1950, y: gy - 90, w: 40, h: 90 },
+    },
     // --- Timed battle arenas (clear the room before the clock runs out) ---
     {
       name: 'Arena 1 · Verdant Rift', world: 'verdant',
@@ -802,6 +825,18 @@ function buildLevels() {
                  {type:'portal',x:520,y:gy-58,spawns:'hopper',cap:3}, {type:'portal',x:1000,y:gy-58,spawns:'walker',cap:2} ],
       exit: { x: 1600, y: gy - 90, w: 40, h: 90 },
     },
+    {   // UP-AND-DOWN — bounce ledges over a lava trench; turret perches + chargers + a rift
+      name: 'Cinder Updraft', world: 'cinder',
+      intro: 'A vent-field over an open lava trench. Bounce the ledges up and down, punish the turrets on their perches, and shield the chargers on the far shore.',
+      spawn: { x: 60, y: gy - 62 },
+      platforms: [ {x:-200,w:520,y:gy}, {x:460,w:170,y:gy-150}, {x:740,w:150,y:gy-280},
+                   {x:1000,w:180,y:gy-150}, {x:1300,w:150,y:gy-250}, {x:1560,w:640,y:gy} ],
+      hazards: [ {x:320,y:gy-14,w:1240,h:14} ],
+      enemies: [ {type:'charger',x:120,y:gy-40}, {type:'turret',x:520,y:gy-188}, {type:'flyer',x:700,y:gy-320},
+                 {type:'turret',x:790,y:gy-318}, {type:'portal',x:1050,y:gy-208,spawns:'hopper',cap:3},
+                 {type:'flyer',x:1300,y:gy-360}, {type:'charger',x:1650,y:gy-40}, {type:'walker',x:1850,y:gy-34} ],
+      exit: { x: 2120, y: gy - 90, w: 40, h: 90 },
+    },
     {
       name: 'Arena 2 · Cinder Gauntlet', world: 'cinder',
       intro: 'A killing floor. Break the brute with combos, shield the chargers, seal the rift — all against the clock.',
@@ -811,6 +846,28 @@ function buildLevels() {
       enemies: [ {type:'charger',x:400,y:gy-40}, {type:'charger',x:1400,y:gy-40}, {type:'brute',x:850,y:gy-48},
                  {type:'turret',x:200,y:gy-34}, {type:'turret',x:1600,y:gy-34}, {type:'portal',x:1000,y:gy-58,spawns:'hopper',cap:3} ],
       exit: { x: 1700, y: gy - 90, w: 40, h: 90 },
+    },
+    {   // VERTICAL (hard) — rising climb + a lift; wall-leeches bleed your reactor if you hang in the air
+      name: 'Glacius Shafts', world: 'glacius',
+      intro: 'The vault’s core shaft climbs up through the ice. Leeches nest in the walls — linger in the air and they’ll drain your reactor dry. Climb fast, and mind the turret watching the summit.',
+      spawn: { x: 60, y: gy - 62 },
+      platforms: [ {x:-200,w:520,y:gy}, {x:320,w:180,y:gy-110}, {x:520,w:180,y:gy-220},
+                   {x:720,w:180,y:gy-330}, {x:920,w:180,y:gy-440, move:{axis:'y',range:90,speed:55}}, {x:1120,w:280,y:gy-530} ],
+      hazards: [],
+      enemies: [ {type:'flyer',x:400,y:gy-230}, {type:'leech',x:600,y:gy-330}, {type:'flyer',x:760,y:gy-420},
+                 {type:'leech',x:860,y:gy-470}, {type:'flyer',x:1000,y:gy-500}, {type:'turret',x:1220,y:gy-568} ],
+      exit: { x: 1260, y: gy - 620, w: 40, h: 90 },
+    },
+    {   // HARD TIMED — everything at once, tight clock
+      name: 'Kepler Crucible', world: 'kepler',
+      intro: 'Back where it began — but the swarm has learned. Everything at once, one clock. Prove the unit.',
+      spawn: { x: 80, y: gy - 62 }, timeLimit: 78,
+      platforms: [ {x:-200,w:1900,y:gy}, {x:400,w:150,y:gy-160}, {x:1000,w:150,y:gy-270}, {x:1500,w:150,y:gy-160} ],
+      hazards: [],
+      enemies: [ {type:'charger',x:250,y:gy-40}, {type:'brute',x:750,y:gy-48}, {type:'turret',x:1030,y:gy-308},
+                 {type:'portal',x:650,y:gy-58,spawns:'hopper',cap:3}, {type:'portal',x:1250,y:gy-58,spawns:'walker',cap:2},
+                 {type:'charger',x:1750,y:gy-40}, {type:'flyer',x:900,y:gy-320} ],
+      exit: { x: 1820, y: gy - 90, w: 40, h: 90 },
     },
     {
       name: 'Arena 3 · Glacius Last Stand', world: 'glacius',
