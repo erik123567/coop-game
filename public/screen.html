@@ -460,8 +460,13 @@ function refreshLobby(){
   if (!gameEntered) currentMenu = { menu: 'lobby', legs: roster.legs, arms: roster.arms, ready: both };
 }
 socket.on('roster', (r) => {
+  const wasLegs = roster.legs, wasArms = roster.arms;
   roster = r;
   refreshLobby();
+  if (gameEntered) {                                   // mid-game: announce a reconnect
+    if (r.legs && !wasLegs) showBanner('✓ Legs reconnected');
+    if (r.arms && !wasArms) showBanner('✓ Arms reconnected');
+  }
   socket.emit('screen-state', currentMenu);   // catch a newly-joined phone up to the current lobby/menu state
 });
 refreshLobby();   // Start stays disabled until BOTH phones join (keyboard Enter still starts solo).
@@ -2099,7 +2104,9 @@ document.getElementById('shopGo').addEventListener('click', () => {
   const cb = shopContinue; shopContinue = null; if (cb) cb();
 });
 
-socket.on('player-left', () => {});
+socket.on('player-left', ({ role }) => {
+  if (gameEntered && role) showBanner('⚠ ' + role.toUpperCase() + ' dropped — reconnecting…');
+});
 </script>
 </body>
 </html>

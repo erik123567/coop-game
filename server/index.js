@@ -69,7 +69,7 @@ io.on('connection', (socket) => {
   socket.on('create-room', () => {
     let code;
     do { code = makeCode(); } while (rooms[code]);
-    rooms[code] = { screen: socket.id, players: {} };
+    rooms[code] = { screen: socket.id, players: {}, tokens: {} };
     socket.join(code);
     socket.data.room = code;
     socket.data.isScreen = true;
@@ -82,19 +82,27 @@ io.on('connection', (socket) => {
   });
 
   // --- Phone joins a room ---------------------------------------------------
-  socket.on('join-room', ({ code, preferredRole }) => {
+  socket.on('join-room', ({ code, preferredRole, clientId }) => {
     code = (code || '').toUpperCase().trim();
     const room = rooms[code];
     if (!room) { socket.emit('join-error', { message: 'No game found with that code.' }); return; }
+    room.tokens = room.tokens || {};
 
-    // Assign role: honor preference if free, else fill the empty slot.
+    // Reconnect reclaim: the same client (matching token) returning to the role it held.
+    // This wins even if the old socket's disconnect hasn't been detected yet (network blip).
     let role = preferredRole;
-    if (!role || room.players[role]) {
+    const reclaiming = role && clientId && room.tokens[role] === clientId;
+    if (!reclaiming && (!role || room.players[role])) {
       role = !room.players.legs ? 'legs' : (!room.players.arms ? 'arms' : null);
     }
     if (!role) { socket.emit('join-error', { message: 'This game already has two players.' }); return; }
 
+    const stale = room.players[role];
     room.players[role] = socket.id;
+    if (clientId) room.tokens[role] = clientId;
+    // Kick a stale socket still holding this role (reclaim path) so we don't have two.
+    if (stale && stale !== socket.id) { const s = io.sockets.sockets.get(stale); if (s) s.disconnect(true); }
+
     socket.join(code);
     socket.data.room = code;
     socket.data.role = role;
@@ -141,9 +149,13 @@ io.on('connection', (socket) => {
       delete rooms[code];
     } else {
       const role = socket.data.role;
-      if (role && room.players[role] === socket.id) delete room.players[role];
-      io.to(room.screen).emit('roster', roster(room));
-      io.to(room.screen).emit('player-left', { role });
+      // Only fire if THIS socket still owns the role — a reclaimed (reconnected) socket
+      // will have already taken it over, so a stale disconnect must not clear it.
+      if (role && room.players[role] === socket.id) {
+        delete room.players[role];
+        io.to(room.screen).emit('roster', roster(room));
+        io.to(room.screen).emit('player-left', { role });
+      }
     }
   });
 });
