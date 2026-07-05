@@ -371,6 +371,7 @@ function renderMenu(s){
       acts.appendChild(actBtn('RETRY', 'big', () => sendMenuCmd({ cmd:'confirm' })));
       acts.appendChild(actBtn('Galaxy Map', 'alt', () => sendMenuCmd({ cmd:'togalaxy' })));
     }
+    acts.appendChild(actBtn('📊 Report', 'alt', () => sendMenuCmd({ cmd:'report' })));   // toggle the match report on the TV
   }
 }
 

@@ -153,7 +153,11 @@
   #overlay button.secondary { background: #2a3350; color: var(--text); }
 
   /* blame card (comedy stats on death) */
-  #blameCard { max-width: 470px; margin: 2px 0 6px; }
+  #reportBar { display: none; gap: 10px; margin: 4px 0 8px; }
+  .ghostBtn { background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid rgba(255,255,255,0.14);
+    padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .ghostBtn:hover { color: var(--text); background: rgba(255,255,255,0.1); }
+  #blameCard { display: none; max-width: 470px; margin: 2px 0 6px; }
   .blameVerdict { font-size: 16px; font-weight: 700; color: var(--accent); margin-bottom: 14px; line-height: 1.4; }
   .blameVerdict b.l { color: var(--legs); } .blameVerdict b.a { color: var(--arms); }
   .blameRows { display: flex; gap: 12px; justify-content: center; margin-bottom: 10px; }
@@ -339,6 +343,7 @@
       <div class="suMark" style="font-size:22px;margin-bottom:2px;">Split&nbsp;Unit</div>
       <h2 id="overlayTitle"></h2>
       <p id="overlaySub"></p>
+      <div id="reportBar"><button id="reportToggle" class="ghostBtn">📊 Match report</button><button id="reportCopy" class="ghostBtn">⧉ Copy recap</button></div>
       <div id="blameCard"></div>
       <div class="ovBtns"><button id="overlayBtn">Retry</button><button id="overlayMap" class="secondary">Galaxy Map</button></div>
     </div>
@@ -444,6 +449,7 @@ socket.on('menu', (m) => {
       else if (document.getElementById('overlay').classList.contains('show')) document.getElementById('overlayBtn').click();
       break;
     case 'togalaxy': if (document.getElementById('overlay').classList.contains('show')) document.getElementById('overlayMap').click(); break;
+    case 'report':   if (document.getElementById('overlay').classList.contains('show')) toggleReport(); break;
   }
 });
 
@@ -802,6 +808,7 @@ function buildLevels() {
                    {x:760,w:190,y:gy-330}, {x:960,w:190,y:gy-440}, {x:1160,w:280,y:gy-540} ],
       hazards: [],
       enemies: [ {type:'flyer',x:450,y:gy-230}, {type:'turret',x:600,y:gy-258}, {type:'flyer',x:780,y:gy-360}, {type:'leech',x:920,y:gy-420} ],
+      coins: [ {x:435,y:gy-155}, {x:635,y:gy-265}, {x:835,y:gy-375}, {x:1035,y:gy-485}, {x:1270,y:gy-585,v:5} ],
       exit: { x: 1270, y: gy - 630, w: 40, h: 90 },
     },
     {   // LONG HORIZONTAL — traversal: a sap-pit crossing on a drifting pod, spread mobs
@@ -813,6 +820,7 @@ function buildLevels() {
       hazards: [ {x:440,y:gy-14,w:360,h:14} ],
       enemies: [ {type:'walker',x:300,y:gy-34}, {type:'hopper',x:900,y:gy-30}, {type:'leech',x:700,y:gy-180},
                  {type:'flyer',x:1050,y:gy-260}, {type:'turret',x:1050,y:gy-198}, {type:'walker',x:1450,y:gy-34}, {type:'hopper',x:1650,y:gy-30} ],
+      coins: [ {x:300,y:gy-70}, {x:560,y:gy-95}, {x:1050,y:gy-215,v:5}, {x:1500,y:gy-70}, {x:1780,y:gy-70} ],
       exit: { x: 1950, y: gy - 90, w: 40, h: 90 },
     },
     // --- Timed battle arenas (clear the room before the clock runs out) ---
@@ -836,6 +844,7 @@ function buildLevels() {
       enemies: [ {type:'charger',x:120,y:gy-40}, {type:'turret',x:520,y:gy-188}, {type:'flyer',x:700,y:gy-320},
                  {type:'turret',x:790,y:gy-318}, {type:'portal',x:1050,y:gy-208,spawns:'hopper',cap:3},
                  {type:'flyer',x:1300,y:gy-360}, {type:'charger',x:1650,y:gy-40}, {type:'walker',x:1850,y:gy-34} ],
+      coins: [ {x:180,y:gy-80}, {x:540,y:gy-195,v:5}, {x:820,y:gy-325,v:5}, {x:1080,y:gy-195,v:5}, {x:1380,y:gy-295,v:5}, {x:1720,y:gy-80} ],
       exit: { x: 2120, y: gy - 90, w: 40, h: 90 },
     },
     {
@@ -857,6 +866,7 @@ function buildLevels() {
       hazards: [],
       enemies: [ {type:'flyer',x:400,y:gy-230}, {type:'leech',x:600,y:gy-330}, {type:'flyer',x:760,y:gy-420},
                  {type:'leech',x:860,y:gy-470}, {type:'flyer',x:1000,y:gy-500}, {type:'turret',x:1220,y:gy-568} ],
+      coins: [ {x:400,y:gy-155}, {x:600,y:gy-265}, {x:800,y:gy-375}, {x:1000,y:gy-475,v:5}, {x:1250,y:gy-575,v:5} ],
       exit: { x: 1260, y: gy - 620, w: 40, h: 90 },
     },
     {   // UNDERWATER DESCENT — sink down a trench; SHIELD through the vent bands, time it so the meter holds
@@ -869,6 +879,7 @@ function buildLevels() {
                  {x:500,y:gy+1090,w:190,h:130},               // partial — steer into the right gap (or shield through)
                  {x:500,y:gy+2020,w:300,h:130} ],             // final full band — shield
       enemies: [],                                            // pure descent — surviving to the floor IS the objective
+      coins: [ {x:650,y:gy+40,v:5}, {x:650,y:gy+500,v:5}, {x:650,y:gy+800,v:5}, {x:650,y:gy+1450,v:5}, {x:650,y:gy+1750,v:5}, {x:650,y:gy+2320,v:5} ],
       exit: { x: 620, y: gy + 2360, w: 40, h: 90 },
     },
     {   // HARD TIMED — everything at once, tight clock
@@ -1108,6 +1119,7 @@ function loadLevel(i, refill) {
   boss = level.boss ? makeBoss(level.boss) : null;
   level.platforms.forEach(p => { if (p.move) { p.baseX = p.x; p.baseY = p.y; p.phase = 0; p.prevX = p.x; p.prevY = p.y; } });
   bullets = []; eBullets = []; effects = []; particles = []; coins = []; hitNums = []; dashGhosts = [];
+  if (level.coins) level.coins.forEach(c => coins.push({ x:c.x, y:c.y, vx:0, vy:0, life:1e9, fixed:true, value: c.v || 3 }));   // route salvage pickups
   camX = Math.max(0, (player.x + player.w/2) - W*0.42);          // snap camera to the player at load
   camY = (player.y + player.h) - H*0.78;
   invuln = 0; flashT = 0; thrustPrev = null;
@@ -1169,7 +1181,8 @@ function spawnParticles(x, y, color, count, spd, opts={}){
 function spawnHitNum(x, y, text, color, big){
   hitNums.push({ x: x + (Math.random()*14 - 7), y, text: String(text), color, life: big ? 0.85 : 0.6, max: big ? 0.85 : 0.6, big: !!big, vy: -90 });
 }
-const COIN_VALUE = { walker:1, flyer:1, turret:2, hopper:2, charger:3, brute:5, leech:2, portal:4 };
+const COIN_VALUE = { walker:2, flyer:2, turret:4, hopper:3, charger:6, brute:10, leech:4, portal:8 };
+const CLEAR_BONUS = 12;   // salvage awarded for clearing any level (so every level — even enemy-free ones — rewards you)
 function killEnemy(e, source){
   e.alive = false;
   if (run) { if (source==='legs') run.killLegs++; else if (source==='arms') run.killArms++; else if (source==='combo') run.killCombo++; }
@@ -1545,11 +1558,14 @@ function update(dt) {
   const pmx = p.x+p.w/2, pmy = p.y+p.h*0.5;
   for (const c of coins) {
     const dx = pmx-c.x, dy = pmy-c.y, d = Math.hypot(dx,dy) || 1;
-    if (d < 160) { c.vx += dx/d*1400*dt; c.vy += dy/d*1400*dt; } else c.vy += 900*dt;
-    c.vx *= 0.985; c.x += c.vx*dt; c.y += c.vy*dt; c.life -= dt;
-    if (c.vy > 0) for (const pl of level.platforms)
-      if (c.x > pl.x && c.x < pl.x+pl.w && c.y > pl.y-6 && c.y < pl.y+22) { c.y = pl.y-6; c.vy *= -0.3; c.vx *= 0.7; }
-    if (d < 24) { c.life = 0; save.coins++; gotCoin = true; }
+    if (d < 170) { c.vx += dx/d*1400*dt; c.vy += dy/d*1400*dt; }   // magnet toward player
+    else if (!c.fixed) c.vy += 900*dt;                            // dropped coins fall; route pickups hover
+    c.vx *= 0.985; c.x += c.vx*dt; c.y += c.vy*dt;
+    if (!c.fixed) { c.life -= dt;
+      if (c.vy > 0) for (const pl of level.platforms)
+        if (c.x > pl.x && c.x < pl.x+pl.w && c.y > pl.y-6 && c.y < pl.y+22) { c.y = pl.y-6; c.vy *= -0.3; c.vx *= 0.7; } }
+    if (d < 26) { c.life = 0; save.coins += (c.value || 1); gotCoin = true;
+      if (c.value > 1) spawnParticles(c.x, c.y, css('--accent'), 8, 220, {life:0.4, size:3}); }
   }
   coins = coins.filter(c => c.life > 0);
   if (gotCoin) { persist(); updateCoinHud(); SFX.coin();
@@ -1597,8 +1613,11 @@ function updateHUD(){
   document.getElementById('levelName').textContent = level ? level.name : '';
 }
 function completeSector(){
+  const firstClear = !save.cleared[levelIndex];
   save.cleared[levelIndex] = true;
   save.maxWorld = Math.max(save.maxWorld, Math.min(LEVELS.length - 1, levelIndex + 1));
+  const bonus = firstClear ? CLEAR_BONUS * 2 : CLEAR_BONUS;   // double salvage the first time you clear a sector
+  save.coins += bonus; updateCoinHud(); showBanner('+' + bonus + ' ◎ salvage');
   persist();
   const allDone = LEVELS.every((_, i) => save.cleared[i]);
   if (allDone) { state = 'win'; musicStop(); SFX.clear(); showOverlay('win'); }   // final sector → victory ending
@@ -2001,11 +2020,13 @@ function draw() {
   for (const pt of particles){ ctx.globalAlpha=Math.max(0, pt.life/pt.max); ctx.fillStyle=pt.color;
     ctx.fillRect(pt.x-pt.size/2, pt.y-pt.size/2, pt.size, pt.size); }
   ctx.globalAlpha=1;
-  for (const c of coins){                                   // salvage coins
+  for (const c of coins){                                   // salvage coins (dropped = small; route pickups = bigger, bobbing glow)
     ctx.globalAlpha = c.life < 1 ? c.life : 1;
-    ctx.fillStyle='rgba(255,207,93,0.25)'; ctx.beginPath(); ctx.arc(c.x,c.y,7,0,6.28); ctx.fill();
-    ctx.fillStyle=css('--accent'); ctx.beginPath(); ctx.arc(c.x,c.y,4.5,0,6.28); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.arc(c.x-1.4,c.y-1.4,1.5,0,6.28); ctx.fill();
+    const big = c.fixed, s = big ? 1.7 : 1, bob = big ? Math.sin(performance.now()/300 + c.x)*3 : 0, cy = c.y + bob;
+    if (big){ ctx.globalAlpha = 0.5; ctx.fillStyle=css('--accent'); ctx.beginPath(); ctx.arc(c.x,cy,12,0,6.28); ctx.fill(); ctx.globalAlpha=1; }
+    ctx.fillStyle='rgba(255,207,93,0.25)'; ctx.beginPath(); ctx.arc(c.x,cy,7*s,0,6.28); ctx.fill();
+    ctx.fillStyle=css('--accent'); ctx.beginPath(); ctx.arc(c.x,cy,4.5*s,0,6.28); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.arc(c.x-1.4*s,cy-1.4*s,1.5*s,0,6.28); ctx.fill();
   }
   ctx.globalAlpha=1;
   ctx.fillStyle = css('--arms'); for (const b of bullets){ ctx.beginPath(); ctx.arc(b.x,b.y,6,0,6.28); ctx.fill(); }
@@ -2084,11 +2105,14 @@ function showOverlay(kind){
   const timeout = run && run.death === 'timeout';
   if (kind === 'win'){ t.textContent = 'GALAXY SECURED'; s.textContent = 'Every sector cleared. Two pilots, one machine — you actually pulled it off.'; b.textContent = 'Return to Galaxy Map'; map.style.display = 'none'; }
   else if (timeout){ t.textContent = "TIME'S UP"; s.textContent = 'The room overran you before the clock ran out.'; b.textContent = 'Retry Sector'; map.style.display = ''; }
-  else { t.textContent = 'Down!'; s.textContent = 'The shared body has fallen. But whose fault was it?'; b.textContent = 'Retry Sector'; map.style.display = ''; }
-  const bc = document.getElementById('blameCard');
-  if (kind === 'dead') { bc.style.display = 'block'; buildBlameCard(false); musicStop(); }
-  else if (kind === 'win') { bc.style.display = 'block'; buildBlameCard(true); }
-  else bc.style.display = 'none';
+  else { t.textContent = 'Down!'; s.textContent = 'Dust yourselves off and jump back in.'; b.textContent = 'Retry Sector'; map.style.display = ''; }
+  const bc = document.getElementById('blameCard'), bar = document.getElementById('reportBar'),
+        tog = document.getElementById('reportToggle'), cpy = document.getElementById('reportCopy');
+  if (kind === 'win') {          // victory recap is celebratory — show it by default
+    buildBlameCard(true); bc.style.display = 'block'; bar.style.display = 'flex'; tog.textContent = '✕ Hide report'; cpy.style.display = 'inline-block';
+  } else if (kind === 'dead') {  // death: keep it low-key & OPT-IN — stats are one tap away, not in your face
+    buildBlameCard(false); bc.style.display = 'none'; bar.style.display = 'flex'; tog.textContent = '📊 Match report'; cpy.style.display = 'none'; musicStop();
+  } else { bc.style.display = 'none'; bar.style.display = 'none'; }
   ov.classList.add('show');
   if (typeof setMenu === 'function') setMenu({ menu:'dead', title: t.textContent, win: kind === 'win' });   // phones -> retry/map
 }
@@ -2107,14 +2131,13 @@ function buildBlameCard(victory){
     else if (kA > kL*1.5)                 verdict = `<b class="a">ARMS</b> did the heavy lifting. <b class="l">LEGS</b> owes you one.`;
     else                                  verdict = `Perfectly balanced — both pilots pulled their weight. Rare.`;
   }
-  else if (r.death === 'timeout')         verdict = `The clock beat you. Hit the <b class="a">rifts</b> first — you can't out-shoot infinity.`;
-  else if (r.death === 'fall')            verdict = `<b class="l">LEGS</b> drove the body off a ledge. Classic.`;
-  else if (r.shots > 6 && acc < 35)       verdict = `<b class="a">ARMS</b> couldn't hit a barn — <b class="a">${acc}%</b> accuracy.`;
-  else if (legsPct >= 68)                 verdict = `<b class="l">LEGS</b> hogged <b class="l">${legsPct}%</b> of the reactor. No juice left to survive.`;
-  else if (armsPct >= 68)                 verdict = `<b class="a">ARMS</b> hogged <b class="a">${armsPct}%</b> of the reactor. No juice left to survive.`;
-  else if (kTot === 0)                    verdict = `Zero kills. Did either of you press a button?`;
-  else if (r.combos === 0 && kTot > 0)    verdict = `Not one combo all run. Try <b class="l">kick</b>+<b class="a">punch</b> together.`;
-  else                                    verdict = `The body took <b class="a">${r.hitsTaken}</b> hit${r.hitsTaken===1?'':'s'}. Coordinate better.`;
+  else if (r.death === 'timeout')         verdict = `The clock won this one — take out the <b class="a">rifts</b> first next time.`;
+  else if (r.death === 'fall')            verdict = `A wrong step found the void. It happens — shake it off.`;
+  else if (r.shots > 6 && acc < 35)       verdict = `Aim ran a little wild — <b class="a">${acc}%</b> on target. Dial it in!`;
+  else if (legsPct >= 72 || armsPct >= 72) verdict = `The reactor ran dry — try to share the energy load.`;
+  else if (kTot === 0)                    verdict = `Quiet run — no takedowns yet. Get stuck in next time.`;
+  else if (r.combos === 0 && kTot > 0)    verdict = `No combos yet — try <b class="l">kick</b> + <b class="a">punch</b> together.`;
+  else                                    verdict = `Took <b class="a">${r.hitsTaken}</b> hit${r.hitsTaken===1?'':'s'} — a little more sync and you've got it.`;
   el.innerHTML =
     `<div class="blameVerdict">${verdict}</div>
      <div class="blameRows">
@@ -2126,6 +2149,13 @@ function buildBlameCard(victory){
          <div>${kA} kills · ${armsPct}% reactor</div></div>
      </div>
      <div class="blameShared">🤝 ${r.combos} combo${r.combos===1?'':'s'} · ${kC} co-op kill${kC===1?'':'s'}</div>`;
+  // Plain-text recap for the Copy/Share button
+  window.__recapText =
+    `SPLIT UNIT — ${victory ? 'GALAXY SECURED 🏆' : 'match report'}\n` +
+    `🦿 Legs: ${r.jumps} jumps · ${r.dashes} dashes · ${kL} kills (${legsPct}% reactor)\n` +
+    `💪 Arms: ${r.shots} shots · ${acc}% on target · ${kA} kills (${armsPct}% reactor)\n` +
+    `🤝 ${r.combos} combos · ${kC} co-op kills\n` +
+    `“${verdict.replace(/<[^>]+>/g,'')}”`;
 }
 document.getElementById('overlayBtn').addEventListener('click', () => {
   document.getElementById('overlay').classList.remove('show');
@@ -2135,6 +2165,19 @@ document.getElementById('overlayBtn').addEventListener('click', () => {
 document.getElementById('overlayMap').addEventListener('click', () => {
   document.getElementById('overlay').classList.remove('show');
   showGalaxy();
+});
+function toggleReport(){
+  const bc = document.getElementById('blameCard'), cpy = document.getElementById('reportCopy'), tog = document.getElementById('reportToggle');
+  const shown = bc.style.display === 'block';
+  bc.style.display = shown ? 'none' : 'block';
+  tog.textContent = shown ? '📊 Match report' : '✕ Hide report';
+  cpy.style.display = shown ? 'none' : 'inline-block';
+}
+document.getElementById('reportToggle').addEventListener('click', toggleReport);
+document.getElementById('reportCopy').addEventListener('click', () => {
+  const txt = window.__recapText || '';
+  const done = () => { const c = document.getElementById('reportCopy'); c.textContent = '✓ Copied'; setTimeout(() => c.textContent = '⧉ Copy recap', 1500); };
+  if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done).catch(done); else done();
 });
 
 // ---- Galaxy map (hub: choose a sector, see progress) ----------------------

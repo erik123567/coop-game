@@ -349,6 +349,26 @@ whole region beneath its x-span solid. Consequences when hand-building:
 - Progenitor is now un-cheeseable → my bot can't beat it (needs precise core aiming). If real
   playtest shows it's too hard, reduce core spacing or widen the sync window.
 
+## Economy + reward pass (2026-07-05)
+Old economy was too stingy/uneven (288 coins/run, 7.5 runs to max the tree, some levels 0 coins).
+- Doubled COIN_VALUE (kills drop ~2x). Added CLEAR_BONUS (12, doubled to 24 on first clear) in
+  completeSector so EVERY level rewards — fixes enemy-free levels (Abyssal Descent 0→54).
+- ROUTE PICKUPS: `level.coins:[{x,y,v}]` → floating, bobbing salvage gems spawned in loadLevel
+  (coins with `fixed:true` + `value`; the coin updater skips gravity/decay for fixed ones and
+  awards `c.value`). Placed along the platforming levels (Kepler Ascent, Verdant Causeway,
+  Cinder Updraft, Glacius Shafts, Abyssal Descent) so climbing/descending is rewarding.
+- Result: ~875 coins/run, ~2.5 runs to max; Sector 1 now yields ~56 (enough for an upgrade
+  immediately). Hull upgrades already visibly re-armor the mech (good progression feedback).
+
+## Match report (was the blame card) — opt-in, low-key
+Per user: the blame card auto-popping every death felt discouraging. Now:
+- Death overlay shows a clean "Down! / Dust yourselves off" + Retry/Map; the stats are HIDDEN
+  behind a "📊 Match report" toggle (`#reportBar`/`#reportToggle`, `toggleReport()`), not auto-shown.
+- Verdict tone softened (encouraging, not accusatory; removed the harsh blame lines).
+- WIN recap still shows by default (celebratory).
+- Shareable: "⧉ Copy recap" copies a plain-text summary (`window.__recapText`) to clipboard.
+- Phone can drive it: dead-menu "📊 Report" button → menu cmd `report` → screen `toggleReport()`.
+
 ## Known constraints
 - Local-WiFi only right now (no remote play yet).
 - Solo testing is hard (co-op needs 2 people) — hence the debug mode task.
