@@ -158,6 +158,9 @@
     padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; }
   .ghostBtn:hover { color: var(--text); background: rgba(255,255,255,0.1); }
   #blameCard { display: none; max-width: 470px; margin: 2px 0 6px; }
+  .blameStanding { font-size: 13px; font-weight: 700; color: var(--visor); margin-bottom: 12px;
+    padding: 8px 12px; background: rgba(110,242,255,0.08); border: 1px solid rgba(110,242,255,0.22); border-radius: 9px; }
+  .blameStanding b { color: var(--accent); }
   .blameVerdict { font-size: 16px; font-weight: 700; color: var(--accent); margin-bottom: 14px; line-height: 1.4; }
   .blameVerdict b.l { color: var(--legs); } .blameVerdict b.a { color: var(--arms); }
   .blameRows { display: flex; gap: 12px; justify-content: center; margin-bottom: 10px; }
@@ -2211,9 +2214,9 @@ function showOverlay(kind){
   const bc = document.getElementById('blameCard'), bar = document.getElementById('reportBar'),
         tog = document.getElementById('reportToggle'), cpy = document.getElementById('reportCopy');
   if (kind === 'win') {          // victory recap is celebratory — show it by default
-    buildBlameCard(true); bc.style.display = 'block'; bar.style.display = 'flex'; tog.textContent = '✕ Hide report'; cpy.style.display = 'inline-block';
+    buildBlameCard(true); refreshRank(); bc.style.display = 'block'; bar.style.display = 'flex'; tog.textContent = '✕ Hide report'; cpy.style.display = 'inline-block';
   } else if (kind === 'dead') {  // death: keep it low-key & OPT-IN — stats are one tap away, not in your face
-    buildBlameCard(false); bc.style.display = 'none'; bar.style.display = 'flex'; tog.textContent = '📊 Match report'; cpy.style.display = 'none'; musicStop();
+    buildBlameCard(false); refreshRank(); bc.style.display = 'none'; bar.style.display = 'flex'; tog.textContent = '📊 Match report'; cpy.style.display = 'none'; musicStop();
   } else { bc.style.display = 'none'; bar.style.display = 'none'; }
   ov.classList.add('show');
   if (typeof setMenu === 'function') setMenu({ menu:'dead', title: t.textContent, win: kind === 'win' });   // phones -> retry/map
@@ -2240,8 +2243,15 @@ function buildBlameCard(victory){
   else if (kTot === 0)                    verdict = `Quiet run — no takedowns yet. Get stuck in next time.`;
   else if (r.combos === 0 && kTot > 0)    verdict = `No combos yet — try <b class="l">kick</b> + <b class="a">punch</b> together.`;
   else                                    verdict = `Took <b class="a">${r.hitsTaken}</b> hit${r.hitsTaken===1?'':'s'} — a little more sync and you've got it.`;
+  // Progress + fastest-clear brag line
+  const worlds = buildLevels(), total = worlds.length, sectorsCleared = save.cleared.filter(Boolean).length;
+  let fastName = '', fastMs = null;
+  for (const k in save.best){ const ms = save.best[k]; if (fastMs == null || ms < fastMs){ fastMs = ms; fastName = (worlds[+k]||{}).name || ''; } }
+  const fastShort = fastName.replace(/\s*·.*/,'').trim();   // "Sector 1 · Kepler" -> "Sector 1"
   el.innerHTML =
-    `<div class="blameVerdict">${verdict}</div>
+    `<div class="blameStanding">🌍 Team <b>${esc(save.team)}</b> · <span id="blameRank">rank …</span> · ${sectorsCleared}/${total} cleared` +
+       (fastMs != null ? ` · ⏱ best ${fmtTime(fastMs)} (${esc(fastShort)})` : '') + `</div>
+     <div class="blameVerdict">${verdict}</div>
      <div class="blameRows">
        <div class="blameCol l"><div class="bhdr">🦿 LEGS</div>
          <div>${r.jumps} jumps · ${r.dashes} dashes</div>
@@ -2251,13 +2261,30 @@ function buildBlameCard(victory){
          <div>${kA} kills · ${armsPct}% reactor</div></div>
      </div>
      <div class="blameShared">🤝 ${r.combos} combo${r.combos===1?'':'s'} · ${kC} co-op kill${kC===1?'':'s'}</div>`;
-  // Plain-text recap for the Copy/Share button
-  window.__recapText =
-    `SPLIT UNIT — ${victory ? 'GALAXY SECURED 🏆' : 'match report'}\n` +
-    `🦿 Legs: ${r.jumps} jumps · ${r.dashes} dashes · ${kL} kills (${legsPct}% reactor)\n` +
-    `💪 Arms: ${r.shots} shots · ${acc}% on target · ${kA} kills (${armsPct}% reactor)\n` +
-    `🤝 ${r.combos} combos · ${kC} co-op kills\n` +
-    `“${verdict.replace(/<[^>]+>/g,'')}”`;
+  // Context for the shareable recap; formatRecap fills in the world rank once fetched.
+  window.__recapCtx = { team: save.team, victory, sectorsCleared, total, fastMs, fastShort,
+    jumps:r.jumps, dashes:r.dashes, kL, kA, kC, shots:r.shots, acc, combos:r.combos, verdict: verdict.replace(/<[^>]+>/g,'') };
+  window.__recapText = formatRecap('rank …');
+}
+function formatRecap(rankStr){
+  const c = window.__recapCtx; if (!c) return '';
+  return `SPLIT UNIT — Team ${c.team}${c.victory ? '  🏆 GALAXY SECURED' : ''}\n` +
+    `🌍 World ${rankStr} · ${c.sectorsCleared}/${c.total} sectors cleared` +
+      (c.fastMs != null ? ` · ⏱ best ${fmtTime(c.fastMs)} (${c.fastShort})` : '') + `\n` +
+    `🦿 Legs ${c.jumps} jumps · ${c.kL} kills   💪 Arms ${c.shots} shots (${c.acc}%) · ${c.kA} kills\n` +
+    `🤝 ${c.combos} combos · ${c.kC} co-op kills\n` +
+    `“${c.verdict}”\n` +
+    `▶ Play: ${location.origin}`;
+}
+// Fetch the team's global rank and drop it into the report card + recap text.
+function refreshRank(){
+  if (!save.team) return;
+  fetch('/api/leaderboard').then(r => r.json()).then(data => {
+    const prog = data.progress || [], idx = prog.findIndex(p => p.team === save.team);
+    const rankStr = idx >= 0 ? ('rank #' + (idx+1) + ' of ' + prog.length) : 'unranked';
+    const el = document.getElementById('blameRank'); if (el) el.textContent = rankStr;
+    window.__recapText = formatRecap(rankStr);
+  }).catch(() => {});
 }
 document.getElementById('overlayBtn').addEventListener('click', () => {
   document.getElementById('overlay').classList.remove('show');
