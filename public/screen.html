@@ -1509,7 +1509,10 @@ function update(dt) {
       b.life=0; run.shotHits++; hitEnemy(e, stats.dmg, false, 'arms'); break; }
     if (b.life>0 && boss && !boss.dead && boss.state!=='dormant') {
       if (boss.type === 'progenitor') { for (let i=0;i<2;i++){ const c=coreCenter(i); if (Math.hypot(b.x-c.x,b.y-c.y)<16){ b.life=0; progenitorCoreHit(i); break; } } }
-      else if (b.x>boss.x && b.x<boss.x+boss.w && b.y>boss.y && b.y<boss.y+boss.h) { b.life=0; damageBoss(stats.dmg, false); } } }
+      else if (b.x>boss.x && b.x<boss.x+boss.w && b.y>boss.y && b.y<boss.y+boss.h) { b.life=0; damageBoss(stats.dmg, false); } }
+    if (b.life>0) for (const pl of level.platforms)                              // bullets stop at walls/terrain (columns solid from the top down)
+      if (b.x >= pl.x && b.x <= pl.x+pl.w && b.y >= pl.y) { b.life=0; spawnParticles(b.x, b.y, css('--muted'), 4, 130, {life:0.16, size:2, grav:0}); break; }
+  }
   bullets = bullets.filter(b => b.life > 0);
 
   const pcx = p.x+p.w/2, pcy = p.y+p.h/2;
@@ -1594,7 +1597,9 @@ function update(dt) {
   }
 
   for (const b of eBullets) { b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
-    if (overlap(playerRect(), {x:b.x-5,y:b.y-5,w:10,h:10})) { damagePlayer(1, b.x); b.life = 0; } }
+    if (overlap(playerRect(), {x:b.x-5,y:b.y-5,w:10,h:10})) { damagePlayer(1, b.x); b.life = 0; }
+    else for (const pl of level.platforms)                                       // enemy shots also stop at terrain
+      if (b.x >= pl.x && b.x <= pl.x+pl.w && b.y >= pl.y) { b.life=0; spawnParticles(b.x, b.y, css('--muted'), 3, 110, {life:0.14, size:2, grav:0}); break; } }
   eBullets = eBullets.filter(b => b.life > 0);
 
   for (const fx of effects) fx.t -= dt;
