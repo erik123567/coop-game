@@ -218,6 +218,10 @@
   .lbMine { color: var(--visor); }
   .lbLoading { color: var(--muted); text-align: center; padding: 18px; font-size: 13px; line-height: 1.6; }
   .worldNode .wtime { font-size: 10px; color: var(--accent); font-weight: 700; }
+  .planetWrap { position: relative; }
+  .wrank { position: absolute; top: -6px; right: -6px; width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(5,8,20,0.9); border: 2px solid; display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 900; }
   #galaxyNew { background: transparent; color: var(--muted); border-color: rgba(255,255,255,0.14); }
   #galaxyNew:hover { color: var(--text); }
   #galaxyNew.arm { background: #3a1c24; color: #ff9aa6; border-color: var(--hazard); }
@@ -674,8 +678,9 @@ const UP_DEFAULT = { hull:0, weapons:0, thrusters:0, shield:0, reactor:0 };
 let save = (() => {
   try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.up) return {
     coins: s.coins|0, up: { ...UP_DEFAULT, ...s.up }, maxWorld: s.maxWorld|0, cleared: Array.isArray(s.cleared) ? s.cleared : [],
-    team: s.team || '', best: (s.best && typeof s.best === 'object') ? s.best : {} }; } catch(e){}
-  return { coins: 0, up: { ...UP_DEFAULT }, maxWorld: 0, cleared: [], team: '', best: {} };
+    team: s.team || '', best: (s.best && typeof s.best === 'object') ? s.best : {},
+    bestRank: (s.bestRank && typeof s.bestRank === 'object') ? s.bestRank : {} }; } catch(e){}
+  return { coins: 0, up: { ...UP_DEFAULT }, maxWorld: 0, cleared: [], team: '', best: {}, bestRank: {} };
 })();
 if (!save.team) save.team = 'Unit-' + Math.random().toString(36).slice(2,6).toUpperCase();   // default team identity for the leaderboard
 function persist(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch(e){} }
@@ -1664,6 +1669,17 @@ function updateHUD(){
   document.getElementById('hearts').innerHTML = h;
   document.getElementById('levelName').textContent = level ? level.name : '';
 }
+// Clear rank — grades a run on damage taken (dominant), style (combos), and speed vs a
+// per-level par. Flawless alone ≈ A; add combos or speed to reach S.
+const RANK_ORDER = { S:5, A:4, B:3, C:2, D:1 };
+const RANK_COLOR = { S:'#ffcf5d', A:'#46e0b0', B:'#6ea8ff', C:'#9aa6bd', D:'#b08a8a' };
+function gradeRun(){
+  const maxH = stats.maxHealth, hits = (run && run.hitsTaken) || 0, combos = (run && run.combos) || 0, t = runClock || 0;
+  const par = 18 + level.enemies.length*7 + (level.boss ? 45 : 0) + (level.timeLimit ? level.timeLimit*0.35 : 0);
+  let score = 88 - hits*(50/Math.max(1,maxH)) + Math.min(20, combos*4);
+  score += Math.max(-15, Math.min(18, (par - t)/par * 25));               // under par = bonus, over = penalty
+  return score>=95 ? 'S' : score>=82 ? 'A' : score>=66 ? 'B' : score>=50 ? 'C' : 'D';
+}
 function completeSector(){
   const firstClear = !save.cleared[levelIndex];
   save.cleared[levelIndex] = true;
@@ -1674,7 +1690,12 @@ function completeSector(){
   const prevBest = save.best[levelIndex];
   const newBest = (prevBest == null) || timeMs < prevBest;
   if (newBest) save.best[levelIndex] = timeMs;
-  showBanner((newBest ? '★ NEW BEST ' : '✓ CLEAR ') + fmtTime(timeMs) + '  ·  +' + bonus + ' ◎');
+  const grade = gradeRun();                                   // S/A/B/C/D clear rank
+  window.__lastGrade = grade;
+  const prevRank = save.bestRank[levelIndex];
+  const rankUp = !prevRank || RANK_ORDER[grade] > RANK_ORDER[prevRank];
+  if (rankUp) save.bestRank[levelIndex] = grade;
+  showBanner('RANK ' + grade + '  ·  ' + fmtTime(timeMs) + (newBest ? '  ★ BEST' : '') + '  ·  +' + bonus + ' ◎');
   submitScore(levelIndex, timeMs);
   persist();
   const allDone = LEVELS.every((_, i) => save.cleared[i]);
@@ -2263,12 +2284,14 @@ function buildBlameCard(victory){
      <div class="blameShared">🤝 ${r.combos} combo${r.combos===1?'':'s'} · ${kC} co-op kill${kC===1?'':'s'}</div>`;
   // Context for the shareable recap; formatRecap fills in the world rank once fetched.
   window.__recapCtx = { team: save.team, victory, sectorsCleared, total, fastMs, fastShort,
-    jumps:r.jumps, dashes:r.dashes, kL, kA, kC, shots:r.shots, acc, combos:r.combos, verdict: verdict.replace(/<[^>]+>/g,'') };
+    jumps:r.jumps, dashes:r.dashes, kL, kA, kC, shots:r.shots, acc, combos:r.combos, verdict: verdict.replace(/<[^>]+>/g,''),
+    grade: victory ? (window.__lastGrade || null) : null };
   window.__recapText = formatRecap('rank …');
 }
 function formatRecap(rankStr){
   const c = window.__recapCtx; if (!c) return '';
   return `SPLIT UNIT — Team ${c.team}${c.victory ? '  🏆 GALAXY SECURED' : ''}\n` +
+    (c.grade ? `🏅 Final clear: RANK ${c.grade}\n` : '') +
     `🌍 World ${rankStr} · ${c.sectorsCleared}/${c.total} sectors cleared` +
       (c.fastMs != null ? ` · ⏱ best ${fmtTime(c.fastMs)} (${c.fastShort})` : '') + `\n` +
     `🦿 Legs ${c.jumps} jumps · ${c.kL} kills   💪 Arms ${c.shots} shots (${c.acc}%) · ${c.kA} kills\n` +
@@ -2300,6 +2323,12 @@ function buildResultsImage(){
   for (let i=0;i<90;i++){ x.globalAlpha=0.15+Math.random()*0.5; x.fillStyle='#dfeaff';
     x.fillRect(Math.random()*1080, Math.random()*1080, Math.random()<0.2?3:2, Math.random()<0.2?3:2); }
   x.globalAlpha=1; x.textAlign='center';
+  // clear-rank badge (top-right) on a graded win
+  if (c.grade){ const gc = (typeof RANK_COLOR!=='undefined' && RANK_COLOR[c.grade]) || '#fff';
+    x.beginPath(); x.arc(952,128,66,0,6.28); x.fillStyle='rgba(5,8,20,0.92)'; x.fill();
+    x.lineWidth=6; x.strokeStyle=gc; x.stroke();
+    x.font='900 70px sans-serif'; x.fillStyle=gc; x.textBaseline='middle'; x.fillText(c.grade, 952, 134); x.textBaseline='alphabetic';
+    x.font='700 18px sans-serif'; x.fillStyle='#8a93a8'; x.fillText('CLEAR RANK', 952, 214); }
   // wordmark SPLIT (blue) UNIT (red)
   x.font='900 78px -apple-system,"Segoe UI",Roboto,sans-serif';
   const sw=x.measureText('SPLIT ').width, uw=x.measureText('UNIT').width, x0=540-(sw+uw)/2;
@@ -2413,7 +2442,9 @@ function renderGalaxy(){
     const node = document.createElement('div');
     node.className = 'worldNode' + (unlocked?'':' locked') + (cleared?' cleared':'');
     const bestTime = save.best[i] != null ? `<div class="wtime">⏱ ${fmtTime(save.best[i])}</div>` : '';
-    node.innerHTML = `<div class="planet" style="background:radial-gradient(circle at 34% 30%, ${t.planet[0]}, ${t.planet[1]} 68%, ${t.planet[2]})"></div>
+    const rk = save.bestRank[i];
+    const rankBadge = rk ? `<div class="wrank" style="color:${RANK_COLOR[rk]};border-color:${RANK_COLOR[rk]};box-shadow:0 0 10px ${RANK_COLOR[rk]}55">${rk}</div>` : '';
+    node.innerHTML = `<div class="planetWrap"><div class="planet" style="background:radial-gradient(circle at 34% 30%, ${t.planet[0]}, ${t.planet[1]} 68%, ${t.planet[2]})"></div>${rankBadge}</div>
       <div class="wname">${w.name}</div>
       <div class="wstatus">${cleared ? '✓ Cleared' : (unlocked ? '▶ Ready' : '🔒 Locked')}</div>${bestTime}`;
     if (unlocked) node.addEventListener('click', () => launchWorld(i));
@@ -2431,7 +2462,7 @@ document.getElementById('teamName').addEventListener('input', (e) => {
 
 // Wipe all meta-progression (coins, upgrades, cleared sectors) and rebuild the map.
 function resetSave(){
-  save = { coins: 0, up: { ...UP_DEFAULT }, maxWorld: 0, cleared: [], team: save.team, best: {} };   // keep team name, clear best times
+  save = { coins: 0, up: { ...UP_DEFAULT }, maxWorld: 0, cleared: [], team: save.team, best: {}, bestRank: {} };   // keep team name, clear bests
   persist(); computeStats(); updateCoinHud(); renderGalaxy();
   if (typeof menuMap === 'function') menuMap();
 }

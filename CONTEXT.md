@@ -393,6 +393,17 @@ Per user: the blame card auto-popping every death felt discouraging. Now:
 - Verified end-to-end: API (submit/replace-best/reject-bad/sort), client timer + best (faster
   replaces, slower doesn't), submit→server→render with rank + highlight, node times, no errors.
 
+## Clear ranks (S/A/B/C/D) — 2026-07-05
+- `gradeRun()` grades a clear on damage taken (dominant, scaled to maxHealth), style (combos),
+  and speed vs a per-level `par` (18 + enemies*7 + boss?45 + timeLimit*0.35). Base 88 → flawless
+  alone ≈ A; add combos/speed for S; slow or damaged drops to B/C/D. RANK_ORDER/RANK_COLOR consts.
+- completeSector: computes grade, keeps best per level in `save.bestRank[i]`, banner shows
+  "RANK S · 0:38 · ★ BEST · +24 ◎", stores `window.__lastGrade`.
+- Galaxy nodes show a colored rank badge on the planet (`.wrank`/`.planetWrap`).
+- Shareable recap + 1080² results image include the final-clear grade (badge top-right of the
+  image, colored by rank; recap "🏅 Final clear: RANK S"). Verified: grade calibration sensible,
+  node badge, recap, and image badge all render; no console errors.
+
 ## Known constraints
 - Local-WiFi only right now (no remote play yet).
 - Solo testing is hard (co-op needs 2 people) — hence the debug mode task.
