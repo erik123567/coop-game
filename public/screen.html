@@ -380,7 +380,7 @@
       <div class="suMark" style="font-size:22px;margin-bottom:2px;">Split&nbsp;Unit</div>
       <h2 id="overlayTitle"></h2>
       <p id="overlaySub"></p>
-      <div id="reportBar"><button id="reportToggle" class="ghostBtn">📊 Match report</button><button id="reportCopy" class="ghostBtn">⧉ Copy recap</button></div>
+      <div id="reportBar"><button id="reportToggle" class="ghostBtn">📊 Match report</button><button id="reportSave" class="ghostBtn">⬇ Save image</button><button id="reportCopy" class="ghostBtn">⧉ Copy recap</button></div>
       <div id="blameCard"></div>
       <div class="ovBtns"><button id="overlayBtn">Retry</button><button id="overlayMap" class="secondary">Galaxy Map</button></div>
     </div>
@@ -2212,11 +2212,11 @@ function showOverlay(kind){
   else if (timeout){ t.textContent = "TIME'S UP"; s.textContent = 'The room overran you before the clock ran out.'; b.textContent = 'Retry Sector'; map.style.display = ''; }
   else { t.textContent = 'Down!'; s.textContent = 'Dust yourselves off and jump back in.'; b.textContent = 'Retry Sector'; map.style.display = ''; }
   const bc = document.getElementById('blameCard'), bar = document.getElementById('reportBar'),
-        tog = document.getElementById('reportToggle'), cpy = document.getElementById('reportCopy');
+        tog = document.getElementById('reportToggle'), cpy = document.getElementById('reportCopy'), sav = document.getElementById('reportSave');
   if (kind === 'win') {          // victory recap is celebratory — show it by default
-    buildBlameCard(true); refreshRank(); bc.style.display = 'block'; bar.style.display = 'flex'; tog.textContent = '✕ Hide report'; cpy.style.display = 'inline-block';
+    buildBlameCard(true); refreshRank(); bc.style.display = 'block'; bar.style.display = 'flex'; tog.textContent = '✕ Hide report'; cpy.style.display = sav.style.display = 'inline-block';
   } else if (kind === 'dead') {  // death: keep it low-key & OPT-IN — stats are one tap away, not in your face
-    buildBlameCard(false); refreshRank(); bc.style.display = 'none'; bar.style.display = 'flex'; tog.textContent = '📊 Match report'; cpy.style.display = 'none'; musicStop();
+    buildBlameCard(false); refreshRank(); bc.style.display = 'none'; bar.style.display = 'flex'; tog.textContent = '📊 Match report'; cpy.style.display = sav.style.display = 'none'; musicStop();
   } else { bc.style.display = 'none'; bar.style.display = 'none'; }
   ov.classList.add('show');
   if (typeof setMenu === 'function') setMenu({ menu:'dead', title: t.textContent, win: kind === 'win' });   // phones -> retry/map
@@ -2282,9 +2282,78 @@ function refreshRank(){
   fetch('/api/leaderboard').then(r => r.json()).then(data => {
     const prog = data.progress || [], idx = prog.findIndex(p => p.team === save.team);
     const rankStr = idx >= 0 ? ('rank #' + (idx+1) + ' of ' + prog.length) : 'unranked';
+    window.__myRank = idx >= 0 ? idx+1 : null; window.__myRankTotal = prog.length;
     const el = document.getElementById('blameRank'); if (el) el.textContent = rankStr;
     window.__recapText = formatRecap(rankStr);
   }).catch(() => {});
+}
+// Render the match report to a shareable 1080×1080 PNG (no libraries — we draw it ourselves).
+function buildResultsImage(){
+  const c = window.__recapCtx || {};
+  const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1080;
+  const x = cv.getContext('2d');
+  const rr = (px,py,w,h,r) => { x.beginPath(); x.roundRect(px,py,w,h,r); };
+  // background + stars
+  const g = x.createRadialGradient(540,360,120,540,560,780);
+  g.addColorStop(0,'#111d42'); g.addColorStop(0.6,'#0a1128'); g.addColorStop(1,'#05060f');
+  x.fillStyle=g; x.fillRect(0,0,1080,1080);
+  for (let i=0;i<90;i++){ x.globalAlpha=0.15+Math.random()*0.5; x.fillStyle='#dfeaff';
+    x.fillRect(Math.random()*1080, Math.random()*1080, Math.random()<0.2?3:2, Math.random()<0.2?3:2); }
+  x.globalAlpha=1; x.textAlign='center';
+  // wordmark SPLIT (blue) UNIT (red)
+  x.font='900 78px -apple-system,"Segoe UI",Roboto,sans-serif';
+  const sw=x.measureText('SPLIT ').width, uw=x.measureText('UNIT').width, x0=540-(sw+uw)/2;
+  x.textAlign='left'; x.fillStyle='#6aa0ff'; x.fillText('SPLIT ', x0, 150);
+  x.fillStyle='#ff7a72'; x.fillText('UNIT', x0+sw, 150); x.textAlign='center';
+  x.font='700 24px sans-serif'; x.fillStyle='#8a93a8'; x.fillText('CO-OP MECH BRAWLER', 540, 192);
+  // team + result
+  x.font='800 44px sans-serif'; x.fillStyle='#e6ebf5'; x.fillText('Team ' + (c.team||'—'), 540, 268);
+  if (c.victory){ x.font='900 40px sans-serif'; x.fillStyle='#46e0b0'; x.fillText('★ GALAXY SECURED ★', 540, 322); }
+  // rank badge
+  const rankY = c.victory ? 400 : 372;
+  x.font='700 26px sans-serif'; x.fillStyle='#8a93a8'; x.fillText('WORLD RANK', 540, rankY);
+  x.font='900 120px sans-serif'; x.fillStyle='#ffcf5d';
+  x.fillText(window.__myRank ? ('#'+window.__myRank) : 'UNRANKED', 540, rankY+112);
+  if (window.__myRank){ x.font='700 26px sans-serif'; x.fillStyle='#8a93a8'; x.fillText('of ' + window.__myRankTotal + ' teams', 540, rankY+150); }
+  // progress + best-time pills
+  const pillY = rankY+210;
+  const pill = (cx,txt,sub,col) => { x.fillStyle='rgba(255,255,255,0.05)'; rr(cx-210,pillY,420,90,16); x.fill();
+    x.font='800 34px sans-serif'; x.fillStyle=col; x.fillText(txt, cx, pillY+42);
+    x.font='600 20px sans-serif'; x.fillStyle='#8a93a8'; x.fillText(sub, cx, pillY+72); };
+  pill(320, (c.sectorsCleared||0)+' / '+(c.total||13), 'SECTORS CLEARED', '#6ef2ff');
+  pill(760, (c.fastMs!=null? fmtTime(c.fastMs) : '—'), 'FASTEST CLEAR' + (c.fastShort?' ('+c.fastShort+')':''), '#ffcf5d');
+  // Legs / Arms panels
+  const py=pillY+130, ph=175, colDraw=(cx,title,col,l1,l2)=>{ x.fillStyle='rgba(255,255,255,0.04)'; rr(cx-210,py,420,ph,18); x.fill();
+    x.strokeStyle=col; x.lineWidth=2; rr(cx-210,py,420,ph,18); x.stroke();
+    x.font='800 30px sans-serif'; x.fillStyle=col; x.fillText(title, cx, py+50);
+    x.font='600 26px sans-serif'; x.fillStyle='#cfd8ea'; x.fillText(l1, cx, py+100); x.fillText(l2, cx, py+140); };
+  colDraw(320, 'LEGS', '#4a90ff', c.jumps+' jumps · '+c.dashes+' dashes', c.kL+' kills');
+  colDraw(760, 'ARMS', '#ff5d5d', c.shots+' shots · '+c.acc+'% on target', c.kA+' kills');
+  // shared combos
+  x.font='700 26px sans-serif'; x.fillStyle='#ffcf5d'; x.fillText(c.combos+' combos · '+c.kC+' co-op kills', 540, py+ph+56);
+  // verdict
+  x.font='italic 600 28px sans-serif'; x.fillStyle='#c3ccdf';
+  const words=(c.verdict||'').split(' '); let line='', ly=py+ph+112;
+  for (const w of words){ if (x.measureText(line+w).width>900){ x.fillText(line.trim(), 540, ly); ly+=40; line=''; } line+=w+' '; }
+  x.fillText(line.trim(), 540, ly);
+  // footer
+  x.font='700 26px sans-serif'; x.fillStyle='#6ef2ff'; x.fillText('▶ Play free: ' + location.host, 540, 1030);
+  return cv;
+}
+function saveResultsImage(){
+  let cv; try { cv = buildResultsImage(); } catch(e){ return; }
+  cv.toBlob((blob) => {
+    if (!blob) return;
+    const file = new File([blob], 'split-unit-result.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'SPLIT UNIT', text: window.__recapText }).catch(() => {});
+    } else {
+      const url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = 'split-unit-result.png'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 8000);
+      const b = document.getElementById('reportSave'); if (b){ b.textContent = '✓ Saved'; setTimeout(() => b.textContent = '⬇ Save image', 1500); }
+    }
+  }, 'image/png');
 }
 document.getElementById('overlayBtn').addEventListener('click', () => {
   document.getElementById('overlay').classList.remove('show');
@@ -2296,11 +2365,12 @@ document.getElementById('overlayMap').addEventListener('click', () => {
   showGalaxy();
 });
 function toggleReport(){
-  const bc = document.getElementById('blameCard'), cpy = document.getElementById('reportCopy'), tog = document.getElementById('reportToggle');
+  const bc = document.getElementById('blameCard'), cpy = document.getElementById('reportCopy'),
+        sav = document.getElementById('reportSave'), tog = document.getElementById('reportToggle');
   const shown = bc.style.display === 'block';
   bc.style.display = shown ? 'none' : 'block';
   tog.textContent = shown ? '📊 Match report' : '✕ Hide report';
-  cpy.style.display = shown ? 'none' : 'inline-block';
+  cpy.style.display = sav.style.display = shown ? 'none' : 'inline-block';
 }
 document.getElementById('reportToggle').addEventListener('click', toggleReport);
 document.getElementById('reportCopy').addEventListener('click', () => {
@@ -2308,6 +2378,7 @@ document.getElementById('reportCopy').addEventListener('click', () => {
   const done = () => { const c = document.getElementById('reportCopy'); c.textContent = '✓ Copied'; setTimeout(() => c.textContent = '⧉ Copy recap', 1500); };
   if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done).catch(done); else done();
 });
+document.getElementById('reportSave').addEventListener('click', saveResultsImage);
 
 // ---- Galaxy map (hub: choose a sector, see progress) ----------------------
 function showGalaxy(){

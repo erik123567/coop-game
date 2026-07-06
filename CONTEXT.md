@@ -384,6 +384,12 @@ Per user: the blame card auto-popping every death felt discouraging. Now:
   + per-level fastest, your team highlighted with your rank. Phone map-menu "🏆 Ranks" → menu cmd
   `leaderboard` → screen toggles it (TV-mode).
 - Anti-cheat is minimal (client-submitted) — fine for a party game; note if it ever matters.
+- SHAREABLE RESULTS IMAGE: `buildResultsImage()` renders the report to a 1080×1080 PNG on an
+  offscreen canvas (no libs — wordmark, team, world rank badge, sectors/best-time pills,
+  Legs/Arms panels, verdict, "Play free: <host>" footer). "⬇ Save image" (#reportSave) →
+  `saveResultsImage()` uses navigator.share with the file on mobile, else downloads the PNG.
+  The recap card/copy-text also carry world rank + best time + play link (formatRecap/refreshRank
+  store window.__myRank/__myRankTotal). Verified via pixel sampling (all regions draw correctly).
 - Verified end-to-end: API (submit/replace-best/reject-bad/sort), client timer + best (faster
   replaces, slower doesn't), submit→server→render with rank + highlight, node times, no errors.
 
