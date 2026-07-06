@@ -52,7 +52,8 @@ app.use(express.json({ limit: '8kb' }));
 // Stored as a JSON file. Set DATA_DIR to a Railway VOLUME mount for persistence
 // across redeploys (otherwise it lives only until the container restarts).
 // ---------------------------------------------------------------------------
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+// Uses a Railway Volume automatically (RAILWAY_VOLUME_MOUNT_PATH) if one is attached.
+const DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '..', 'data');
 const LB_FILE = path.join(DATA_DIR, 'leaderboard.json');
 let board = { levels: {}, teams: {} };
 try { const j = JSON.parse(fs.readFileSync(LB_FILE, 'utf8')); board.levels = j.levels || {}; board.teams = j.teams || {}; } catch (e) {}
