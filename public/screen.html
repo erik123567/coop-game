@@ -822,7 +822,7 @@ function buildLevels() {
     },
     {
       name: 'Sector 2 · Verdant-9', world: 'verdant',
-      intro: 'The signal points to a living world — but Verdant-9 is no longer alive. It is spreading. Its core sits high: thrust up, or climb the vines it throws out to reach it. And watch your reactor — the Bloom feeds on energy.',
+      intro: 'The signal points to a living world — but Verdant-9 is no longer alive; it is spreading. The Bloom Mother’s core pulses atop its stalk — aim up and shoot it down. Dodge the spore volleys, and gun down the leeches it spawns before they drain your reactor.',
       spawn: { x: 60, y: gy - 62 },
       platforms: [ {x:-200,w:700,y:gy}, {x:760,w:120,y:gy}, {x:1000,w:520,y:gy-40}, {x:1150,w:300,y:gy-240} ],
       hazards: [ {x:500,y:gy-14,w:260,h:14} ],
@@ -1034,7 +1034,7 @@ function makeBoss(def){
   const gy = H*0.80;
   const base = { x:def.x, homeX:def.x, state:'dormant', t:0, facing:-1, vulnerable:false, hitT:0, dead:false };
   if (def.type === 'warden')     return { ...base, type:'warden', name:'WARDEN PRIME', y:gy-116, w:92, h:116, maxHp:24, hp:24, needsVulnerable:true };
-  if (def.type === 'bloom')      return { ...base, type:'bloom', name:'BLOOM MOTHER', y:gy-300, w:76, h:70, maxHp:30, hp:30, groundY:gy, spawnT:2.5, spitT:2 };
+  if (def.type === 'bloom')      return { ...base, type:'bloom', name:'BLOOM MOTHER', y:gy-200, w:76, h:70, maxHp:28, hp:28, groundY:gy, spawnT:2.5, spitT:2 };
   if (def.type === 'forge')      return { ...base, type:'forge', name:'THE FORGEMASTER', y:gy-120, w:100, h:120, maxHp:22, hp:22, comboOnly:true, atk:'pound', chargeDir:1 };
   if (def.type === 'progenitor') return { ...base, type:'progenitor', name:'THE PROGENITOR', y:gy-150, w:200, h:150, maxHp:20, hp:20, beamT:3,
                                           cores:[{dx:30,dy:70,lit:0},{dx:170,dy:70,lit:0}] };   // cores far apart → one combo can't light both
@@ -1044,11 +1044,6 @@ function coreCenter(i){ return { x: boss.x + boss.cores[i].dx, y: boss.y + boss.
 function coreRect(i){ const c = coreCenter(i); return { x:c.x-14, y:c.y-14, w:28, h:28 }; }
 function activateBoss(){
   boss.state = 'intro'; boss.t = 1.2; showBanner('⚠  ' + boss.name); SFX.chargeUp(); musicStart(BOSS_TRACK);
-  if (boss.type === 'bloom') {                    // extend climbable vines forming a shaft up to the high core
-    const top = H*0.80 - 250;
-    level.platforms.push({ x: boss.x-70, w:24, y: top, vine:true });
-    level.platforms.push({ x: boss.x+boss.w+16, w:24, y: top, vine:true });
-  }
 }
 
 function updateBoss(dt){
