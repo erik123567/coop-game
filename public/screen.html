@@ -1075,11 +1075,15 @@ function updateWarden(dt, pcx, bcx){
   else if (b.state === 'slam')   { if (b.t <= 0) { b.state = 'recover'; b.t = 1.7; b.vulnerable = true; } }
   else if (b.state === 'recover'){ if (b.t <= 0) { b.state = 'idle'; b.t = 0.7; b.vulnerable = false; } }
 }
-function bossSlam(dmg, col){
-  const b = boss, bcx = b.x + b.w/2;
+function bossSlam(dmg, col, radius){
+  radius = radius || 240;                       // shockwave reach (was an invisible 360 — felt like it hit from anywhere)
+  const b = boss, bcx = b.x + b.w/2, footY = b.y + b.h;
   addShake(22); hitStopT = Math.max(hitStopT, 0.06); SFX.lunge();
-  spawnParticles(bcx, b.y + b.h, col, 22, 430, {life:0.5, size:4, vy:-120});
-  if (player.onGround && Math.abs((player.x+player.w/2) - bcx) < 360) damagePlayer(dmg, bcx);  // shield or jump
+  spawnParticles(bcx, footY, col, 22, 430, {life:0.5, size:4, vy:-120});
+  effects.push({ x:bcx, y:footY, t:0.45, max:0.45, mr:radius, col });                          // expanding ring = the danger zone
+  spawnParticles(bcx - radius*0.55, footY, css('--muted'), 7, 300, {life:0.4, size:3, vx:-260, grav:500});
+  spawnParticles(bcx + radius*0.55, footY, css('--muted'), 7, 300, {life:0.4, size:3, vx: 260, grav:500});
+  if (player.onGround && Math.abs((player.x+player.w/2) - bcx) < radius) damagePlayer(dmg, bcx);  // jump it, shield it, or back off
 }
 
 // --- Bloom Mother: rooted; high core; spawns energy-leeches + spore volleys ---
@@ -2146,8 +2150,8 @@ function draw() {
     if (e.hitT > 0) { ctx.globalAlpha = Math.min(1, e.hitT*7); ctx.fillStyle = '#fff'; ctx.fillRect(e.x,e.y,e.w,e.h); ctx.globalAlpha = 1; }
     ctx.restore();
   }
-  for (const fx of effects){ const mr = fx.big?COMBO_RADIUS:26; const r=(1-fx.t/fx.max)*mr+4; ctx.globalAlpha=fx.t/fx.max;
-    ctx.strokeStyle=css('--accent'); ctx.lineWidth=fx.big?6:3; ctx.beginPath(); ctx.arc(fx.x,fx.y,r,0,6.28); ctx.stroke(); ctx.globalAlpha=1; }
+  for (const fx of effects){ const mr = fx.mr || (fx.big?COMBO_RADIUS:26); const r=(1-fx.t/fx.max)*mr+4; ctx.globalAlpha=fx.t/fx.max;
+    ctx.strokeStyle=fx.col||css('--accent'); ctx.lineWidth=fx.mr?7:(fx.big?6:3); ctx.beginPath(); ctx.arc(fx.x,fx.y,r,0,6.28); ctx.stroke(); ctx.globalAlpha=1; }
   for (const pt of particles){ ctx.globalAlpha=Math.max(0, pt.life/pt.max); ctx.fillStyle=pt.color;
     ctx.fillRect(pt.x-pt.size/2, pt.y-pt.size/2, pt.size, pt.size); }
   ctx.globalAlpha=1;
