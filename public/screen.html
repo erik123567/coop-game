@@ -1004,7 +1004,7 @@ function applyTheme(key){
 }
 
 let LEVELS, levelIndex, level, player, enemies, bullets, eBullets, effects, camX, camY;
-let health, invuln, flashT, state, thrustPrev, bannerT;
+let health, invuln, flashT, state, thrustPrev, bannerT, spawnGrace;
 let particles, shake, hitStopT, comboCd, kickWin, punchWin, comboFlash;
 let hitNums, dashGhosts;   // floating damage numbers + dash afterimages (juice)
 let shield, shieldActive, clearedAnnounced, coins, energy, boss, run, roomTimer, clearDelay, runClock;
@@ -1187,7 +1187,7 @@ function loadLevel(i, refill) {
   shield = 1; shieldActive = false; clearedAnnounced = false; energy = stats.energyMax; resetRun();
   if (refill) health = stats.maxHealth;
   document.getElementById('overlay').classList.remove('show');
-  roomTimer = level.timeLimit || 0; clearDelay = -1; runClock = 0;
+  roomTimer = level.timeLimit || 0; clearDelay = -1; runClock = 0; spawnGrace = 1.8;   // ~2s to get your bearings before you can be hit
   document.getElementById('timerHud').className = '';
   state = 'play';
   if (typeof setMenu === 'function') setMenu({ menu:'play' });   // phones -> gameplay controller
@@ -1322,6 +1322,7 @@ function triggerCombo(){
 function rumblePhones(kind){ try { socket.emit('screen-state', { rumble: kind }); } catch(e){} }
 function damagePlayer(amount, fromX){
   if (state !== 'play') return;
+  if (spawnGrace > 0) return;     // start-of-level grace — no damage while you get oriented
   if (player.dashT > 0) return;   // DASH = dodge (brief i-frames)
   if (shieldActive) { // blocked by the co-op shield
     spawnParticles(player.x+player.w/2, player.y+player.h/2, css('--accent'), 8, 260, {life:0.35, size:3, grav:200});
@@ -1347,6 +1348,7 @@ function update(dt) {
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) document.getElementById('banner').classList.remove('show'); }
   if (state !== 'play') return;
   runClock += dt;                    // level clear timer (for leaderboard / personal best)
+  if (spawnGrace > 0) spawnGrace -= dt;   // brief start-of-level safety
   const p = player;
 
   for (const pl of level.platforms) if (pl.move) {
@@ -2174,6 +2176,14 @@ function draw() {
   if (boss) drawBoss();
   const p = player;
   drawPlayer(p);
+  // Start-of-level spawn shield (fades over the grace window)
+  if (spawnGrace > 0) {
+    const cx=p.x+p.w/2, cy=p.y+p.h/2, r=SHIELD_RADIUS + 8 + Math.sin(performance.now()/90)*3, a=Math.min(1, spawnGrace/1.8);
+    ctx.save();
+    ctx.globalAlpha=0.10*a; ctx.fillStyle=css('--visor'); ctx.beginPath(); ctx.arc(cx,cy,r,0,6.28); ctx.fill();
+    ctx.globalAlpha=0.7*a; ctx.lineWidth=2; ctx.setLineDash([6,6]); ctx.strokeStyle=css('--visor'); ctx.beginPath(); ctx.arc(cx,cy,r,0,6.28); ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore();
+  }
   // Co-op shield bubble
   if (shieldActive) {
     const cx=p.x+p.w/2, cy=p.y+p.h/2, r=SHIELD_RADIUS + Math.sin(performance.now()/80)*3;

@@ -458,13 +458,20 @@ function setupStick(role) {
   function place(el, x, y){ el.style.left = x+'px'; el.style.top = y+'px'; }
 
   const ghost = document.getElementById('stickGhost');
+  function releaseStick(){
+    active = null;
+    base.style.display = nub.style.display = 'none';
+    ghost.classList.remove('hide');
+    if (role === 'legs') send({ action:'move', x: 0 });   // stop moving on release
+  }
   zone.addEventListener('pointerdown', e => {
-    if (active !== null) return;
+    // Last touch wins: always take over. A stale/stuck pointer can therefore never
+    // permanently lock the stick — a fresh press re-acquires it.
     active = e.pointerId; ox = e.clientX; oy = e.clientY;
     base.style.display = nub.style.display = 'block';
     ghost.classList.add('hide');
     place(base, ox, oy); place(nub, ox, oy);
-    zone.setPointerCapture(e.pointerId);
+    try { zone.setPointerCapture(e.pointerId); } catch(_){}
   });
   zone.addEventListener('pointermove', e => {
     if (e.pointerId !== active) return;
@@ -485,15 +492,14 @@ function setupStick(role) {
       }
     }
   });
-  function end(e){
-    if (e.pointerId !== active) return;
-    active = null;
-    base.style.display = nub.style.display = 'none';
-    ghost.classList.remove('hide');
-    if (role === 'legs') send({ action:'move', x: 0 });
-  }
+  function end(e){ if (!e || e.pointerId === active) releaseStick(); }
   zone.addEventListener('pointerup', end);
   zone.addEventListener('pointercancel', end);
+  zone.addEventListener('pointerleave', end);
+  zone.addEventListener('lostpointercapture', () => releaseStick());   // browser reclaimed the touch (e.g. a gesture) → don't get stuck
+  // If the tab loses focus / is hidden mid-drag, drop the stick so it can't stick "on".
+  window.addEventListener('blur', () => releaseStick());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releaseStick(); });
 }
 
 function send(msg){ socket.emit('input', msg); }
