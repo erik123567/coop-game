@@ -559,7 +559,7 @@ const BULLET_SPEED = 950, SHOOT_CD = 0.22;
 const THRUST_FORCE = 2100, THRUST_MAXUP = 520;
 const MAX_HEALTH = 5, IFRAME_TIME = 1.0, CONTACT_KNOCK = 320;
 // Shared energy pool — powers thrust, dash, double-jump & the Combo Strike. Basic attacks are free.
-const ENERGY_MAX = 100, ENERGY_REGEN = 22, E_DASH = 25, E_DOUBLEJUMP = 30, E_THRUST = 55, E_COMBO = 45;
+const ENERGY_MAX = 100, ENERGY_REGEN = 22, E_DASH = 25, E_DOUBLEJUMP = 30, E_THRUST = 130, E_COMBO = 45;
 // Juice — shake kept gentle to avoid motion sickness (halved in addShake, capped low)
 const SHAKE_MAX = 15;
 // Coordination — Combo Strike: Legs KICK + Arms PUNCH within COMBO_WINDOW → radial blast
@@ -1359,7 +1359,8 @@ function update(dt) {
   if (invuln>0) invuln-=dt; if (flashT>0) flashT-=dt;
   if (comboCd>0) comboCd-=dt; if (kickWin>0) kickWin-=dt; if (punchWin>0) punchWin-=dt;
   if (comboFlash>0) comboFlash-=dt;
-  energy = Math.min(stats.energyMax, energy + stats.energyRegen*dt);
+  const holdingThrust = inp.arms.thrust && !p.onGround && p.jumpInitiated && !shieldActive;
+  if (!holdingThrust) energy = Math.min(stats.energyMax, energy + stats.energyRegen*dt);   // no regen while thrust is HELD → it truly runs out (no trickle-fed flight)
   shake = Math.max(0, shake - shake*Math.min(1, dt*18) - dt*12);   // faster settle
 
   // --- Co-op Shield: forms only while BOTH players hold Guard (and meter isn't empty) ---
